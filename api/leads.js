@@ -16,13 +16,10 @@ const schema = new mongoose.Schema({
 
 const Lead = mongoose.models.Lead || mongoose.model("Lead",schema);
 
-let cached = global._mongo;
 async function db(){
-  if(cached && cached.readyState===1) return cached;
-  if(!process.env.MONGODB_URI) throw new Error("MONGODB_URI environment variable is missing");
-  cached = await mongoose.connect(process.env.MONGODB_URI, {serverSelectionTimeoutMS:10000});
-  global._mongo=cached;
-  return cached;
+  if(mongoose.connection.readyState===1) return;
+  if(!process.env.MONGODB_URI) throw new Error("MONGODB_URI is missing in Vercel Environment Variables");
+  await mongoose.connect(process.env.MONGODB_URI, {serverSelectionTimeoutMS:10000});
 }
 
 function normalize(input={}){
@@ -31,7 +28,6 @@ function normalize(input={}){
     let v=input[key];
     if(v===undefined || v===null || v==="") v=null;
     else v=String(v).trim();
-    if(key==="id" && v!==null) v=String(v);
     out[key]=v;
   }
   if(!out.id) out.id=String(Date.now());
@@ -41,8 +37,16 @@ function normalize(input={}){
 function parseCsv(buffer){
   return new Promise((resolve,reject)=>{
     const rows=[];
-    Readable.from(buffer).pipe(csv()).on("data",r=>rows.push(r)).on("end",()=>resolve(rows)).on("error",reject);
+    Readable.from(buffer)
+      .pipe(csv())
+      .on("data",r=>rows.push(r))
+      .on("end",()=>resolve(rows))
+      .on("error",reject);
   });
+}
+
+function getPath(req){
+  return (req.url || "").split("?")[0].replace(/^\/+/,"").split("/").filter(Boolean);
 }
 
 module.exports = async (req,res)=>{
@@ -53,25 +57,30 @@ module.exports = async (req,res)=>{
 
   try{
     await db();
-    const path=req.url.split("?")[0];
-    const parts=path.split("/").filter(Boolean);
+    const parts=getPath(req);
+    // /api/leads or /api/leads/:id or /api/leads/import
+    const tail=parts.slice(2);
+    const action=tail[0] || "";
 
     if(req.method==="GET"){
       return res.status(200).json(await Lead.find().sort({id:1}).lean());
     }
 
-    if(req.method==="POST" && parts[0]==="import"){
+    if(req.method==="POST" && action==="import"){
       return upload.single("file")(req,res,async(err)=>{
         try{
           if(err) throw err;
           if(!req.file) return res.status(400).json({error:"No file uploaded"});
           const name=req.file.originalname.toLowerCase();
-          let rows;
+          let rows=[];
           if(name.endsWith(".json")){
             const parsed=JSON.parse(req.file.buffer.toString("utf8"));
             rows=Array.isArray(parsed)?parsed:(Array.isArray(parsed.leads)?parsed.leads:[]);
-          }else if(name.endsWith(".csv")) rows=await parseCsv(req.file.buffer);
-          else return res.status(400).json({error:"Only JSON and CSV files are supported"});
+          }else if(name.endsWith(".csv")){
+            rows=await parseCsv(req.file.buffer);
+          }else{
+            return res.status(400).json({error:"Only JSON and CSV files are supported"});
+          }
           if(!rows.length) return res.status(400).json({error:"No valid rows found"});
           const ops=rows.map(r=>{
             const doc=normalize(r);
@@ -83,7 +92,7 @@ module.exports = async (req,res)=>{
       });
     }
 
-    const id=decodeURIComponent(parts[0]||"");
+    const id=action ? decodeURIComponent(action) : "";
 
     if(req.method==="POST"){
       const data=normalize(req.body);
@@ -93,6 +102,7 @@ module.exports = async (req,res)=>{
     }
 
     if(req.method==="PUT"){
+      if(!id) return res.status(400).json({error:"Missing lead ID"});
       const data=normalize({...req.body,id});
       const lead=await Lead.findOneAndUpdate({id},data,{new:true,runValidators:true});
       if(!lead) return res.status(404).json({error:"Lead not found"});
@@ -100,6 +110,7 @@ module.exports = async (req,res)=>{
     }
 
     if(req.method==="DELETE"){
+      if(!id) return res.status(400).json({error:"Missing lead ID"});
       const lead=await Lead.findOneAndDelete({id});
       if(!lead) return res.status(404).json({error:"Lead not found"});
       return res.json({ok:true});

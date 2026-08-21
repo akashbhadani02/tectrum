@@ -23,7 +23,7 @@ main{max-width:1500px;margin:22px auto;padding:0 18px}.stats{display:grid;grid-t
 <body>
 <header><div class="head">
 <div class="brand"><h1>📋 Lead Follow-up Manager</h1><small>Online editable lead database</small></div>
-<div class="actions"><button class="btn primary" onclick="openAdd()">＋ Add Lead</button><button class="btn primary" onclick="exportCSV()">Export CSV</button></div>
+<div class="actions"><button class="btn primary" onclick="openAdd()">＋ Add Lead</button><button class="btn primary" onclick="openImport()">⬆ Import Data</button><button class="btn primary" onclick="exportCSV()">Export CSV</button></div>
 </div></header>
 <main>
 <div id="notice" class="notice">Demo mode: data is stored in this browser. Connect the Google Apps Script backend in <b>app.js</b> to make it live and editable from anywhere.</div>
@@ -66,8 +66,15 @@ main{max-width:1500px;margin:22px auto;padding:0 18px}.stats{display:grid;grid-t
 <div class="modal-head"><h2 id="modalTitle">Add Lead</h2><button class="close" onclick="closeModal()">×</button></div>
 <form id="leadForm"><div class="grid" id="fields"></div><div class="modal-actions"><button type="button" class="btn gray" onclick="closeModal()">Cancel</button><button class="btn blue" type="submit">Save Lead</button></div></form>
 </div></div>
+<div id="importModal" class="modal"><div class="box" style="max-width:650px">
+<div class="modal-head"><h2>Import Data</h2><button class="close" onclick="closeImport()">×</button></div>
+<div class="notice">Upload <b>JSON</b> or <b>CSV</b>. If the same ID already exists, that record will be updated.</div>
+<input id="importFile" class="input" type="file" accept=".json,.csv,application/json,text/csv">
+<div id="importResult" style="margin-top:12px;font-size:13px"></div>
+<div class="modal-actions"><button type="button" class="btn gray" onclick="closeImport()">Cancel</button><button type="button" class="btn blue" onclick="uploadImport()">Import to MongoDB</button></div>
+</div></div>
 <script>
-const API_URL=""; // Put deployed Google Apps Script Web App URL here.
+const API_URL="/api/leads";
 let leads=[];
 const fields=[
 ["id","ID","number"],["leadInDate","Lead In Date","date"],["clientName","Client Name","text"],["clientMobile","Client Mobile","tel"],
@@ -81,8 +88,16 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function loadLocal(){const saved=localStorage.getItem("leadFollowupData"); leads=saved?JSON.parse(saved):SEED_DATA||[]; saveLocal()}
 function saveLocal(){localStorage.setItem("leadFollowupData",JSON.stringify(leads))}
 async function load(){
-if(!API_URL){loadLocal();document.getElementById("notice").style.display="block";return}
-try{const r=await fetch(API_URL);leads=await r.json();document.getElementById("notice").style.display="none"}catch(e){loadLocal()}
+try{
+const r=await fetch(API_URL);
+if(!r.ok) throw new Error("API "+r.status);
+leads=await r.json();
+document.getElementById("notice").style.display="none";
+}catch(e){
+loadLocal();
+document.getElementById("notice").style.display="block";
+document.getElementById("notice").innerHTML="MongoDB is not connected yet. Add the <b>MONGODB_URI</b> Environment Variable in Vercel and redeploy.";
+}
 render()
 }
 function render(){
@@ -117,16 +132,27 @@ function closeModal(){document.getElementById("modal").classList.remove("show")}
 document.getElementById("leadForm").addEventListener("submit",async e=>{
 e.preventDefault();const fd=new FormData(e.target), obj={};fields.forEach(([k])=>obj[k]=fd.get(k)||null);
 if(!obj.id)obj.id=Date.now(); if(editId!==null){const i=leads.findIndex(x=>String(x.id)===String(editId));if(i>=0)leads[i]=obj}else leads.push(obj);
-saveLocal();closeModal();render();if(API_URL) await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",data:obj})});
+saveLocal();closeModal();render();
+try{
+const method=editId!==null?"PUT":"POST";
+const url=editId!==null?API_URL+"/"+encodeURIComponent(editId):API_URL;
+const r=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(obj)});
+if(!r.ok) throw new Error((await r.text())||"Save failed");
+await load();
+}catch(err){alert("MongoDB save failed: "+err.message)};
 });
-async function removeLead(id){if(!confirm("Delete this lead?"))return;leads=leads.filter(x=>String(x.id)!==String(id));saveLocal();render();if(API_URL)await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete",id})})}
+async function removeLead(id){
+if(!confirm("Delete this lead?"))return;
+try{const r=await fetch(API_URL+"/"+encodeURIComponent(id),{method:"DELETE"});if(!r.ok)throw new Error((await r.text())||"Delete failed");await load()}
+catch(err){alert("MongoDB delete failed: "+err.message)}
+}
 function setFollowUp(id){
 const x=leads.find(a=>String(a.id)===String(id)); if(!x)return;
 const d=prompt("Enter next follow-up date (YYYY-MM-DD):", x.nextFollowUpDate || new Date().toISOString().slice(0,10));
 if(d===null)return;
 if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){alert("Please enter date in YYYY-MM-DD format.");return}
 x.nextFollowUpDate=d; saveLocal(); render();
-if(API_URL) fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",data:x})});
+fetch(API_URL+"/"+encodeURIComponent(x.id),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(x)}).then(()=>load()).catch(()=>alert("MongoDB update failed."));
 }
 function setSelectedFollowUp(){
 const ids=[...document.querySelectorAll(".leadCheck:checked")].map(x=>x.value);
@@ -136,7 +162,23 @@ if(d===null)return;
 if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){alert("Please enter date in YYYY-MM-DD format.");return}
 ids.forEach(id=>{const x=leads.find(a=>String(a.id)===String(id));if(x)x.nextFollowUpDate=d});
 saveLocal(); render();
-if(API_URL) ids.forEach(id=>{const x=leads.find(a=>String(a.id)===String(id));if(x)fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",data:x})})});
+ids.forEach(id=>{const x=leads.find(a=>String(a.id)===String(id));if(x)fetch(API_URL+"/"+encodeURIComponent(x.id),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(x)}).catch(()=>alert("MongoDB update failed."));});
+}
+function openImport(){document.getElementById("importFile").value="";document.getElementById("importResult").textContent="";document.getElementById("importModal").classList.add("show")}
+function closeImport(){document.getElementById("importModal").classList.remove("show")}
+async function uploadImport(){
+const file=document.getElementById("importFile").files[0];
+const out=document.getElementById("importResult");
+if(!file){out.textContent="Please choose a JSON or CSV file.";return}
+out.textContent="Importing...";
+try{
+const fd=new FormData();fd.append("file",file);
+const r=await fetch(API_URL+"/import",{method:"POST",body:fd});
+const data=await r.json();
+if(!r.ok)throw new Error(data.error||"Import failed");
+out.textContent=`Done: ${data.inserted||0} added, ${data.updated||0} updated, ${data.total||0} processed.`;
+await load();
+}catch(e){out.textContent="Import failed: "+e.message}
 }
 function resetColumnFilters(){
 Object.keys(columnFilters).forEach(k=>delete columnFilters[k]);
