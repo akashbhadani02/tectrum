@@ -230,7 +230,7 @@
         function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
         function render() {
             const q = document.getElementById("globalSearch").value.toLowerCase();
-            const rows = leads.filter(x => fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) && fields.some(f => String(x[f] ?? "").toLowerCase().includes(q)));
+            const rows = leads.filter(x => fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) && fields.some(f => String(x[f] ?? "").toLowerCase().includes(q))); 
             let h = "<table><thead><tr>" + fields.map(f => "<th>" + labels[f] + "</th>").join("") + "<th>Actions</th></tr><tr>" + fields.map(f => `<th><input class="filter" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") + "<th></th></tr></thead><tbody>";
             for (const x of rows) h += "<tr>" + fields.map(f => "<td>" + esc(x[f] ?? "") + "</td>").join("") + "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> <button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
             h += "</tbody></table>"; document.getElementById("tableWrap").innerHTML = h;
