@@ -181,121 +181,235 @@
                 padding: 12px
             }
         }
-    
-        .rowCheck, #selectAll { width:18px; height:18px; cursor:pointer; }
-        th:first-child, td:first-child { text-align:center; }
-        .toolbar button { white-space:nowrap; }
-        
-</head>
 
-<body>
-    <header>
-        <h1>Lead Follow-up Manager</h1>
-        <div><button onclick="openImport()">Import Data</button> <button onclick="openAdd()">+ Add Lead</button></div>
-    </header>
-    <div class="wrap">
-        <div id="status" class="status">Connecting to MongoDB...</div>
-        <div class="toolbar">
-            <button class="gray" onclick="toggleAllRows(true)">☑ Select All</button>
-            <button onclick="deleteSelected()">Delete Selected</button>
-            <input id="globalSearch" placeholder="Search all columns..." oninput="render()">
-            <button class="gray" onclick="clearFilters()">Clear Filters</button>
-            <button class="gray" onclick="exportCSV()">Export CSV</button>
-        </div>
-        <div class="card">
-            <div id="tableWrap"></div>
-        </div>
-    </div>
+        .rowCheck,
+        #selectAll {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
 
-    <div id="leadModal" class="modal">
-        <div class="box">
-            <h2 id="modalTitle">Add Lead</h2>
-            <div id="form" class="grid"></div>
-            <div class="actions"><button class="gray" onclick="closeLead()">Cancel</button><button
-                    onclick="saveLead()">Save</button></div>
-        </div>
-    </div>
+        th:first-child,
+        td:first-child {
+            text-align: center;
+        }
 
-    <div id="importModal" class="modal">
-        <div class="box">
-            <h2>Import JSON / CSV</h2>
-            <p>Excel/CSV/JSON can have different column names or extra columns; the importer auto-maps common names and also falls back to column order. Same ID updates an existing record; new ID creates a record.</p>
-            <input id="file" type="file" accept=".xlsx,.xls,.json,.csv">
-            <div id="importMsg"></div>
-            <div class="actions"><button class="gray" onclick="closeImport()">Cancel</button><button
-                    onclick="importFile()">Import to MongoDB</button></div>
-        </div>
-    </div>
+        .toolbar button {
+            white-space: nowrap;
+        }
 
-    <script>
-        const API="/api/leads";
-        const fields = ["id", "leadInDate", "clientName", "clientMobile", "architectName", "architectMobile", "salesPerson", "leadGivenBy", "quotation", "amount", "dealed", "hotLead", "address", "area", "currentStatus", "nextFollowUpDate"];
-        const labels = { id: "ID", leadInDate: "Lead Date", clientName: "Client", clientMobile: "Client Mobile", architectName: "Architect", architectMobile: "Architect Mobile", salesPerson: "Sales Person", leadGivenBy: "Lead Given By", quotation: "Quotation", amount: "Amount", dealed: "Dealed", hotLead: "Hot Lead", address: "Address", area: "Area", currentStatus: "Current Status", nextFollowUpDate: "Next Follow-up" };
-        let leads = [], editId = null, filters = {};
+        </head><body><header><h1>Lead Follow-up Manager</h1><div><button onclick="openImport()">Import Data</button><button onclick="openAdd()">+Add Lead</button></div></header><div class="wrap"><div id="status" class="status">Connecting to MongoDB...</div><div class="toolbar"><button class="gray" onclick="toggleAllRows(true)">☑ Select All</button><button onclick="deleteSelected()">Delete Selected</button><input id="globalSearch" placeholder="Search all columns..." oninput="render()"><button class="gray" onclick="clearFilters()">Clear Filters</button><button class="gray" onclick="exportCSV()">Export CSV</button></div><div class="card"><div id="tableWrap"></div></div></div><div id="leadModal" class="modal"><div class="box"><h2 id="modalTitle">Add Lead</h2><div id="form" class="grid"></div><div class="actions"><button class="gray" onclick="closeLead()">Cancel</button><button onclick="saveLead()">Save</button></div></div></div><div id="importModal" class="modal"><div class="box"><h2>Import JSON / CSV</h2><p>Excel/CSV/JSON can have different column names or extra columns;
+        the importer auto-maps common names and also falls back to column order. Same ID updates an existing record;
+        new ID creates a record.</p><input id="file" type="file" accept=".xlsx,.xls,.json,.csv"><div id="importMsg"></div><div class="actions"><button class="gray" onclick="closeImport()">Cancel</button><button onclick="importFile()">Import to MongoDB</button></div></div></div><script>const API="/api/leads";
+        const fields=["id",
+        "leadInDate",
+        "clientName",
+        "clientMobile",
+        "architectName",
+        "architectMobile",
+        "salesPerson",
+        "leadGivenBy",
+        "quotation",
+        "amount",
+        "dealed",
+        "hotLead",
+        "address",
+        "area",
+        "currentStatus",
+        "nextFollowUpDate"];
 
-        async function api(url, opt = {}) { const r = await fetch(url, opt); const text = await r.text(); let data = {}; try { data = JSON.parse(text) } catch { } if (!r.ok) throw new Error(data.error || text || ("HTTP " + r.status)); return data }
-        async function load() { try { leads = await api(API); setStatus("Connected to MongoDB", "ok"); render() } catch (e) { setStatus("MongoDB/API error: " + e.message, "error"); } }
-        function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
+        const labels= {
+            id: "ID", leadInDate: "Lead Date", clientName: "Client", clientMobile: "Client Mobile", architectName: "Architect", architectMobile: "Architect Mobile", salesPerson: "Sales Person", leadGivenBy: "Lead Given By", quotation: "Quotation", amount: "Amount", dealed: "Dealed", hotLead: "Hot Lead", address: "Address", area: "Area", currentStatus: "Current Status", nextFollowUpDate: "Next Follow-up"
+        }
+
+        ;
+
+        let leads=[],
+        editId=null,
+        filters= {}
+
+        ;
+
+        async function api(url, opt= {}) {
+            const r=await fetch(url, opt);
+            const text=await r.text();
+
+            let data= {}
+
+            ;
+
+            try {
+                data=JSON.parse(text)
+            }
+
+            catch {}
+
+            if ( !r.ok) throw new Error(data.error || text || ("HTTP " + r.status));
+            return data
+        }
+
+        async function load() {
+            try {
+                leads=await api(API);
+                setStatus("Connected to MongoDB", "ok");
+                render()
+            }
+
+            catch (e) {
+                setStatus("MongoDB/API error: " + e.message, "error");
+            }
+        }
+
+        function setStatus(t, c) {
+            const s=document.getElementById("status");
+            s.textContent=t;
+            s.className="status "+c
+        }
+
         function render() {
-            const q = document.getElementById("globalSearch").value.toLowerCase();
-            const rows = leads.filter(x =>
-                fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) &&
-                fields.some(f => String(x[f] ?? "").toLowerCase().includes(q))
-            );
-            let h = "<table><thead><tr>" +
-                "<th style='width:42px'><input type='checkbox' id='selectAll' title='Select all visible rows' onchange='toggleAllRows(this.checked)'></th>" +
-                fields.map(f => "<th>" + labels[f] + "</th>").join("") +
-                "<th>Actions</th></tr><tr><th></th>" +
-                fields.map(f => `<th><input class="filter" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") +
-                "<th></th></tr></thead><tbody>";
+            const q=document.getElementById("globalSearch").value.toLowerCase();
+            const rows=leads.filter(x=> fields.every(f=> String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) && fields.some(f=> String(x[f] ?? "").toLowerCase().includes(q)));
+            let h="<table><thead><tr>"+"<th style='width:42px'><input type='checkbox' id='selectAll' title='Select all visible rows' onchange='toggleAllRows(this.checked)'></th>"+fields.map(f=> "<th>" + labels[f] + "</th>").join("")+"<th>Actions</th></tr><tr><th></th>"+fields.map(f=> `<th><input class="filter" value="${esc(filters[f] || " ")}" oninput="filters['${f}']=this.value;render()" ></th>`).join("")+"<th></th></tr></thead><tbody>";
 
             for (const x of rows) {
-                h += "<tr><td><input type='checkbox' class='rowCheck' value='" + esc(x.id) + "' title='Select " + esc(x.id) + "'></td>" +
-                    fields.map(f => "<td>" + esc(x[f] ?? "") + "</td>").join("") +
-                    "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> " +
-                    "<button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
+                h+="<tr><td><input type='checkbox' class='rowCheck' value='"+esc(x.id)+"' title='Select "+esc(x.id)+"'></td>"+fields.map(f=> "<td>" + esc(x[f] ?? "") + "</td>").join("")+"<td><button onclick='editLead("+JSON.stringify(x.id)+")'>Edit</button> "+"<button class='gray' onclick='deleteLead("+JSON.stringify(x.id)+")'>Delete</button></td></tr>";
             }
-            h += "</tbody></table>";
-            document.getElementById("tableWrap").innerHTML = h;
+
+            h+="</tbody></table>";
+            document.getElementById("tableWrap").innerHTML=h;
         }
+
         function getSelectedIds() {
-            return [...document.querySelectorAll(".rowCheck:checked")].map(el => el.value);
+            return [...document.querySelectorAll(".rowCheck:checked")].map(el=> el.value);
         }
+
         function toggleAllRows(checked) {
-            document.querySelectorAll(".rowCheck").forEach(el => el.checked = !!checked);
-            const master = document.getElementById("selectAll");
-            if (master) master.checked = !!checked;
+            document.querySelectorAll(".rowCheck").forEach(el=> el.checked= ! !checked);
+            const master=document.getElementById("selectAll");
+            if (master) master.checked= ! !checked;
         }
+
         async function deleteSelected() {
-            const ids = getSelectedIds();
-            if (!ids.length) {
+            const ids=getSelectedIds();
+
+            if ( !ids.length) {
                 alert("Please select at least one lead.");
                 return;
             }
-            if (!confirm("Delete " + ids.length + " selected lead(s)?")) return;
+
+            if ( !confirm("Delete " + ids.length + " selected lead(s)?")) return;
+
             try {
                 for (const id of ids) {
-                    await api(API + "/" + encodeURIComponent(id), { method: "DELETE" });
+                    await api(API + "/" + encodeURIComponent(id), {
+                        method: "DELETE"
+                    });
+            }
+
+            await load();
+        }
+
+        catch (e) {
+            alert(e.message);
+        }
+        }
+
+        function esc(v) {
+            return String(v).replace(/[&<>"']/g, c => ({ " &": " &amp; ", " <": " &lt; ", " >": " &gt; ", '" ': "&quot;", "' ": " &#39; " }[c])) }
+ function clearFilters() {
+                    filters= {}
+
+                    ; document.getElementById("globalSearch").value=""; render()
                 }
-                await load();
-            } catch (e) {
-                alert(e.message);
+
+                function openAdd() {
+                    editId=null; document.getElementById("modalTitle").textContent="Add Lead"; buildForm({}); document.getElementById("leadModal").classList.add("show")
+            }
+
+            function editLead(id) {
+                const x=leads.find(a=> String(a.id)===String(id)); if ( !x) return; editId=id; document.getElementById("modalTitle").textContent="Edit Lead"; buildForm(x); document.getElementById("leadModal").classList.add("show")
+            }
+
+            function buildForm(x) {
+                document.getElementById("form").innerHTML=fields.map(f=> `<label>$ {
+                        labels[f]
+                    }
+
+                    <input id="f_${f}" value="${esc(x[f] ?? " ")}"$ {
+                        f==="id" && editId !==null ? "readonly" : ""
+                    }
+
+                    ></label>`).join("")
+            }
+
+            function closeLead() {
+                document.getElementById("leadModal").classList.remove("show")
+            }
+
+            async function saveLead() {
+                const x= {}
+
+                ; fields.forEach(f=> x[f]=document.getElementById("f_" + f).value); if ( !x.id) x.id=String(Date.now()); try {
+                    await api(editId===null ? API : API + "/" + encodeURIComponent(editId), {
+                        method: editId===null ? "POST" : "PUT", headers: {
+                            "Content-Type": "application/json"
+                        }
+
+                        , body: JSON.stringify(x)
+                    }); closeLead(); await load()
+            }
+
+            catch (e) {
+                alert(e.message)
             }
         }
-        function esc(v) { return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])) }
-        function clearFilters() { filters = {}; document.getElementById("globalSearch").value = ""; render() }
-        function openAdd() { editId = null; document.getElementById("modalTitle").textContent = "Add Lead"; buildForm({}); document.getElementById("leadModal").classList.add("show") }
-        function editLead(id) { const x = leads.find(a => String(a.id) === String(id)); if (!x) return; editId = id; document.getElementById("modalTitle").textContent = "Edit Lead"; buildForm(x); document.getElementById("leadModal").classList.add("show") }
-        function buildForm(x) { document.getElementById("form").innerHTML = fields.map(f => `<label>${labels[f]}<input id="f_${f}" value="${esc(x[f] ?? "")}" ${f === "id" && editId !== null ? "readonly" : ""}></label>`).join("") }
-        function closeLead() { document.getElementById("leadModal").classList.remove("show") }
-        async function saveLead() { const x = {}; fields.forEach(f => x[f] = document.getElementById("f_" + f).value); if (!x.id) x.id = String(Date.now()); try { await api(editId === null ? API : API + "/" + encodeURIComponent(editId), { method: editId === null ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(x) }); closeLead(); await load() } catch (e) { alert(e.message) } }
-        async function deleteLead(id) { if (!confirm("Delete this lead?")) return; try { await api(API + "/" + encodeURIComponent(id), { method: "DELETE" }); await load() } catch (e) { alert(e.message) } }
-        function openImport() { document.getElementById("importModal").classList.add("show"); document.getElementById("importMsg").textContent = "" }
-        function closeImport() { document.getElementById("importModal").classList.remove("show") }
-        async function importFile() { const f = document.getElementById("file").files[0]; if (!f) return alert("Choose a file"); const fd = new FormData(); fd.append("file", f); try { const d = await api(API + "/import", { method: "POST", body: fd }); document.getElementById("importMsg").textContent = `Imported ${d.total} rows: ${d.inserted} added, ${d.updated} updated.`; await load() } catch (e) { document.getElementById("importMsg").textContent = e.message } }
-        function exportCSV() { const head = fields.join(","); const body = leads.map(x => fields.map(f => `"${String(x[f] ?? "").replaceAll('"', '""')}"`).join(",")).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([head + "\n" + body], { type: "text/csv" })); a.download = "leads.csv"; a.click() }
-        load();
-    </script>
-</body>
 
-</html>
+        async function deleteLead(id) {
+            if ( !confirm("Delete this lead?")) return; try {
+                await api(API + "/" + encodeURIComponent(id), {
+                    method: "DELETE"
+                }); await load()
+        }
+
+        catch (e) {
+            alert(e.message)
+        }
+        }
+
+        function openImport() {
+            document.getElementById("importModal").classList.add("show"); document.getElementById("importMsg").textContent=""
+        }
+
+        function closeImport() {
+            document.getElementById("importModal").classList.remove("show")
+        }
+
+        async function importFile() {
+            const f=document.getElementById("file").files[0]; if ( !f) return alert("Choose a file"); const fd=new FormData(); fd.append("file", f); try {
+                const d=await api(API + "/import", {
+                    method: "POST", body: fd
+
+                }); document.getElementById("importMsg").textContent=`Imported $ {
+                d.total
+            }
+
+            rows: $ {
+                d.inserted
+            }
+
+            added, $ {
+                d.updated
+            }
+
+            updated.`; await load()
+        }
+
+        catch (e) {
+            document.getElementById("importMsg").textContent=e.message
+        }
+        }
+
+        function exportCSV() {
+            const head=fields.join(","); const body=leads.map(x=> fields.map(f=> `"${String(x[f] ?? " ").replaceAll('" ', ' "" ')}"`).join(",")).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([head + "\n" + body], { type: "text/csv" })); a.download = "leads.csv"; a.click() }
+ load();
+                    </script> </body> </html>
