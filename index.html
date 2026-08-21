@@ -1,69 +1,254 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lead Follow-up Manager</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#172033}
-header{background:#fff;border-bottom:1px solid #ddd;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px}
-h1{margin:0;font-size:22px}.wrap{padding:20px;max-width:1500px;margin:auto}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-button{border:0;border-radius:8px;padding:10px 15px;cursor:pointer;background:#2563eb;color:#fff;font-weight:600}
-button.gray{background:#64748b}button.green{background:#16a34a}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:16px;overflow:auto}
-input,select{padding:9px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}
-table{width:100%;border-collapse:collapse;min-width:1400px}th,td{padding:9px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px;white-space:nowrap}th{background:#f1f5f9;position:sticky;top:0}.filter{width:100%;min-width:100px}
-.status{margin:8px 0;padding:10px;border-radius:8px;background:#eef2ff}.error{background:#fee2e2;color:#991b1b}.ok{background:#dcfce7;color:#166534}
-.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:20px;z-index:10}.modal.show{display:flex}.box{background:#fff;border-radius:12px;padding:20px;width:min(850px,100%);max-height:90vh;overflow:auto}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.grid label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}@media(max-width:700px){.grid{grid-template-columns:1fr}header{padding:14px}.wrap{padding:12px}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Lead Follow-up Manager</title>
+    <style>
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #172033
+        }
+
+        header {
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 22px
+        }
+
+        .wrap {
+            padding: 20px;
+            max-width: 1500px;
+            margin: auto
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px
+        }
+
+        button {
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 15px;
+            cursor: pointer;
+            background: #2563eb;
+            color: #fff;
+            font-weight: 600
+        }
+
+        button.gray {
+            background: #64748b
+        }
+
+        button.green {
+            background: #16a34a
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            overflow: auto
+        }
+
+        input,
+        select {
+            padding: 9px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #fff
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1400px
+        }
+
+        th,
+        td {
+            padding: 9px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        th {
+            background: #f1f5f9;
+            position: sticky;
+            top: 0
+        }
+
+        .filter {
+            width: 100%;
+            min-width: 100px
+        }
+
+        .status {
+            margin: 8px 0;
+            padding: 10px;
+            border-radius: 8px;
+            background: #eef2ff
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b
+        }
+
+        .ok {
+            background: #dcfce7;
+            color: #166534
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0008;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 10
+        }
+
+        .modal.show {
+            display: flex
+        }
+
+        .box {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            width: min(850px, 100%);
+            max-height: 90vh;
+            overflow: auto
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px
+        }
+
+        .grid label {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 13px;
+            font-weight: 600
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px
+        }
+
+        @media(max-width:700px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+
+            header {
+                padding: 14px
+            }
+
+            .wrap {
+                padding: 12px
+            }
+        }
+    </style>
 </head>
+
 <body>
-<header><h1>Lead Follow-up Manager</h1><div><button onclick="openImport()">Import Data</button> <button onclick="openAdd()">+ Add Lead</button></div></header>
-<div class="wrap">
-<div id="status" class="status">Connecting to MongoDB...</div>
-<div class="toolbar"><input id="globalSearch" placeholder="Search all columns..." oninput="render()"><button class="gray" onclick="clearFilters()">Clear Filters</button><button class="gray" onclick="exportCSV()">Export CSV</button></div>
-<div class="card"><div id="tableWrap"></div></div>
-</div>
+    <header>
+        <h1>Lead Follow-up Manager</h1>
+        <div><button onclick="openImport()">Import Data</button> <button onclick="openAdd()">+ Add Lead</button></div>
+    </header>
+    <div class="wrap">
+        <div id="status" class="status">Connecting to MongoDB...</div>
+        <div class="toolbar"><input id="globalSearch" placeholder="Search all columns..." oninput="render()"><button
+                class="gray" onclick="clearFilters()">Clear Filters</button><button class="gray"
+                onclick="exportCSV()">Export CSV</button></div>
+        <div class="card">
+            <div id="tableWrap"></div>
+        </div>
+    </div>
 
-<div id="leadModal" class="modal"><div class="box">
-<h2 id="modalTitle">Add Lead</h2><div id="form" class="grid"></div>
-<div class="actions"><button class="gray" onclick="closeLead()">Cancel</button><button onclick="saveLead()">Save</button></div>
-</div></div>
+    <div id="leadModal" class="modal">
+        <div class="box">
+            <h2 id="modalTitle">Add Lead</h2>
+            <div id="form" class="grid"></div>
+            <div class="actions"><button class="gray" onclick="closeLead()">Cancel</button><button
+                    onclick="saveLead()">Save</button></div>
+        </div>
+    </div>
 
-<div id="importModal" class="modal"><div class="box">
-<h2>Import JSON / CSV</h2><p>Same ID updates an existing record; new ID creates a record.</p>
-<input id="file" type="file" accept=".json,.csv"><div id="importMsg"></div>
-<div class="actions"><button class="gray" onclick="closeImport()">Cancel</button><button onclick="importFile()">Import to MongoDB</button></div>
-</div></div>
+    <div id="importModal" class="modal">
+        <div class="box">
+            <h2>Import JSON / CSV</h2>
+            <p>Same ID updates an existing record; new ID creates a record.</p>
+            <input id="file" type="file" accept=".json,.csv">
+            <div id="importMsg"></div>
+            <div class="actions"><button class="gray" onclick="closeImport()">Cancel</button><button
+                    onclick="importFile()">Import to MongoDB</button></div>
+        </div>
+    </div>
 
-<script>
-const API="/api/leads";
-const fields=["id","leadInDate","clientName","clientMobile","architectName","architectMobile","salesPerson","leadGivenBy","quotation","amount","dealed","hotLead","address","area","currentStatus","nextFollowUpDate"];
-const labels={id:"ID",leadInDate:"Lead Date",clientName:"Client",clientMobile:"Client Mobile",architectName:"Architect",architectMobile:"Architect Mobile",salesPerson:"Sales Person",leadGivenBy:"Lead Given By",quotation:"Quotation",amount:"Amount",dealed:"Dealed",hotLead:"Hot Lead",address:"Address",area:"Area",currentStatus:"Current Status",nextFollowUpDate:"Next Follow-up"};
-let leads=[], editId=null, filters={};
+    <script>
+        const API = "/api/leads";
+        const fields = ["id", "leadInDate", "clientName", "clientMobile", "architectName", "architectMobile", "salesPerson", "leadGivenBy", "quotation", "amount", "dealed", "hotLead", "address", "area", "currentStatus", "nextFollowUpDate"];
+        const labels = { id: "ID", leadInDate: "Lead Date", clientName: "Client", clientMobile: "Client Mobile", architectName: "Architect", architectMobile: "Architect Mobile", salesPerson: "Sales Person", leadGivenBy: "Lead Given By", quotation: "Quotation", amount: "Amount", dealed: "Dealed", hotLead: "Hot Lead", address: "Address", area: "Area", currentStatus: "Current Status", nextFollowUpDate: "Next Follow-up" };
+        let leads = [], editId = null, filters = {};
 
-async function api(url,opt={}){const r=await fetch(url,opt);const text=await r.text();let data={};try{data=JSON.parse(text)}catch{}if(!r.ok)throw new Error(data.error||text||("HTTP "+r.status));return data}
-async function load(){try{leads=await api(API);setStatus("Connected to MongoDB","ok");render()}catch(e){setStatus("MongoDB/API error: "+e.message,"error");}}
-function setStatus(t,c){const s=document.getElementById("status");s.textContent=t;s.className="status "+c}
-function render(){
-const q=document.getElementById("globalSearch").value.toLowerCase();
-const rows=leads.filter(x=>fields.every(f=>String(x[f]??"").toLowerCase().includes((filters[f]||"").toLowerCase()))&&fields.some(f=>String(x[f]??"").toLowerCase().includes(q)));
-let h="<table><thead><tr>"+fields.map(f=>"<th>"+labels[f]+"</th>").join("")+"<th>Actions</th></tr><tr>"+fields.map(f=>"<th><input class='filter' value='"+esc(filters[f]||"")+"' oninput="filters['"+f+"']=this.value;render()"></th>").join("")+"<th></th></tr></thead><tbody>";
-for(const x of rows)h+="<tr>"+fields.map(f=>"<td>"+esc(x[f]??"")+"</td>").join("")+"<td><button onclick='editLead("+JSON.stringify(x.id)+")'>Edit</button> <button class='gray' onclick='deleteLead("+JSON.stringify(x.id)+")'>Delete</button></td></tr>";
-h+="</tbody></table>";document.getElementById("tableWrap").innerHTML=h;
-}
-function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function clearFilters(){filters={};document.getElementById("globalSearch").value="";render()}
-function openAdd(){editId=null;document.getElementById("modalTitle").textContent="Add Lead";buildForm({});document.getElementById("leadModal").classList.add("show")}
-function editLead(id){const x=leads.find(a=>String(a.id)===String(id));if(!x)return;editId=id;document.getElementById("modalTitle").textContent="Edit Lead";buildForm(x);document.getElementById("leadModal").classList.add("show")}
-function buildForm(x){document.getElementById("form").innerHTML=fields.map(f=>`<label>${labels[f]}<input id="f_${f}" value="${esc(x[f]??"")}" ${f==="id"&&editId!==null?"readonly":""}></label>`).join("")}
-function closeLead(){document.getElementById("leadModal").classList.remove("show")}
-async function saveLead(){const x={};fields.forEach(f=>x[f]=document.getElementById("f_"+f).value);if(!x.id)x.id=String(Date.now());try{await api(editId===null?API:API+"/"+encodeURIComponent(editId),{method:editId===null?"POST":"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(x)});closeLead();await load()}catch(e){alert(e.message)}}
-async function deleteLead(id){if(!confirm("Delete this lead?"))return;try{await api(API+"/"+encodeURIComponent(id),{method:"DELETE"});await load()}catch(e){alert(e.message)}}
-function openImport(){document.getElementById("importModal").classList.add("show");document.getElementById("importMsg").textContent=""}
-function closeImport(){document.getElementById("importModal").classList.remove("show")}
-async function importFile(){const f=document.getElementById("file").files[0];if(!f)return alert("Choose a file");const fd=new FormData();fd.append("file",f);try{const d=await api(API+"/import",{method:"POST",body:fd});document.getElementById("importMsg").textContent=`Imported ${d.total} rows: ${d.inserted} added, ${d.updated} updated.`;await load()}catch(e){document.getElementById("importMsg").textContent=e.message}}
-function exportCSV(){const head=fields.join(",");const body=leads.map(x=>fields.map(f=>`"${String(x[f]??"").replaceAll('"','""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([head+"\n"+body],{type:"text/csv"}));a.download="leads.csv";a.click()}
-load();
-</script>
-</body></html>
+        async function api(url, opt = {}) { const r = await fetch(url, opt); const text = await r.text(); let data = {}; try { data = JSON.parse(text) } catch { } if (!r.ok) throw new Error(data.error || text || ("HTTP " + r.status)); return data }
+        async function load() { try { leads = await api(API); setStatus("Connected to MongoDB", "ok"); render() } catch (e) { setStatus("MongoDB/API error: " + e.message, "error"); } }
+        function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
+        function render() {
+            const q = document.getElementById("globalSearch").value.toLowerCase();
+            const rows = leads.filter(x => fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) && fields.some(f => String(x[f] ?? "").toLowerCase().includes(q)));
+            let h = "<table><thead><tr>" + fields.map(f => "<th>" + labels[f] + "</th>").join("") + "<th>Actions</th></tr><tr>" + fields.map(f => `<th><input class="filter" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") + "<th></th></tr></thead><tbody>";
+            for (const x of rows) h += "<tr>" + fields.map(f => "<td>" + esc(x[f] ?? "") + "</td>").join("") + "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> <button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
+            h += "</tbody></table>"; document.getElementById("tableWrap").innerHTML = h;
+        }
+        function esc(v) { return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])) }
+        function clearFilters() { filters = {}; document.getElementById("globalSearch").value = ""; render() }
+        function openAdd() { editId = null; document.getElementById("modalTitle").textContent = "Add Lead"; buildForm({}); document.getElementById("leadModal").classList.add("show") }
+        function editLead(id) { const x = leads.find(a => String(a.id) === String(id)); if (!x) return; editId = id; document.getElementById("modalTitle").textContent = "Edit Lead"; buildForm(x); document.getElementById("leadModal").classList.add("show") }
+        function buildForm(x) { document.getElementById("form").innerHTML = fields.map(f => `<label>${labels[f]}<input id="f_${f}" value="${esc(x[f] ?? "")}" ${f === "id" && editId !== null ? "readonly" : ""}></label>`).join("") }
+        function closeLead() { document.getElementById("leadModal").classList.remove("show") }
+        async function saveLead() { const x = {}; fields.forEach(f => x[f] = document.getElementById("f_" + f).value); if (!x.id) x.id = String(Date.now()); try { await api(editId === null ? API : API + "/" + encodeURIComponent(editId), { method: editId === null ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(x) }); closeLead(); await load() } catch (e) { alert(e.message) } }
+        async function deleteLead(id) { if (!confirm("Delete this lead?")) return; try { await api(API + "/" + encodeURIComponent(id), { method: "DELETE" }); await load() } catch (e) { alert(e.message) } }
+        function openImport() { document.getElementById("importModal").classList.add("show"); document.getElementById("importMsg").textContent = "" }
+        function closeImport() { document.getElementById("importModal").classList.remove("show") }
+        async function importFile() { const f = document.getElementById("file").files[0]; if (!f) return alert("Choose a file"); const fd = new FormData(); fd.append("file", f); try { const d = await api(API + "/import", { method: "POST", body: fd }); document.getElementById("importMsg").textContent = `Imported ${d.total} rows: ${d.inserted} added, ${d.updated} updated.`; await load() } catch (e) { document.getElementById("importMsg").textContent = e.message } }
+        function exportCSV() { const head = fields.join(","); const body = leads.map(x => fields.map(f => `"${String(x[f] ?? "").replaceAll('"', '""')}"`).join(",")).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([head + "\n" + body], { type: "text/csv" })); a.download = "leads.csv"; a.click() }
+        load();
+    </script>
+</body>
+
+</html>
