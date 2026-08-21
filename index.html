@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Lead Follow-up Manager</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--text:#172033;--muted:#667085;--primary:#2563eb;--primary2:#1d4ed8;--border:#e4e7ec;--danger:#dc2626;--success:#16a34a;--warning:#d97706}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:linear-gradient(135deg,#172554,#2563eb);color:#fff;padding:20px 24px;position:sticky;top:0;z-index:5;box-shadow:0 5px 20px #0002}
+.head{max-width:1500px;margin:auto;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.brand h1{margin:0;font-size:24px}.brand small{opacity:.8}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:9px;padding:10px 14px;cursor:pointer;font-weight:700}.btn.primary{background:#fff;color:#1d4ed8}.btn.blue{background:var(--primary);color:#fff}.btn.danger{background:var(--danger);color:#fff}.btn.gray{background:#eef2f7;color:#344054}
+main{max-width:1500px;margin:22px auto;padding:0 18px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:17px;box-shadow:0 3px 14px #10182808}.stat b{font-size:25px;display:block}.stat span{color:var(--muted);font-size:13px}
+.toolbar{background:#fff;border:1px solid var(--border);padding:14px;border-radius:14px;margin-bottom:15px;display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:9px}.input,select{width:100%;border:1px solid #d0d5dd;border-radius:8px;padding:10px;background:#fff;color:var(--text)}
+.table-wrap{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:auto;box-shadow:0 3px 14px #10182808}table{border-collapse:collapse;width:100%;min-width:1450px}th,td{padding:11px 10px;border-bottom:1px solid var(--border);text-align:left;font-size:13px;vertical-align:top}th{background:#f8fafc;position:sticky;top:0;z-index:2;white-space:nowrap}.header-row th{top:0}.filter-row th{top:43px;background:#fff;z-index:3;padding:6px 7px;border-bottom:1px solid var(--border)}.column-filter{width:100%;min-width:105px;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:7px;padding:7px 8px;background:#fff;color:var(--text);font-size:12px}.column-filter:focus{outline:2px solid #b2ddff;border-color:#84caff}.filter-clear{border:1px solid #d0d5dd;background:#fff;border-radius:7px;padding:7px 9px;cursor:pointer;font-size:12px}.filter-clear:hover{background:#f2f4f7}tr:hover td{background:#f8fbff}.status{padding:5px 8px;border-radius:999px;font-weight:700;font-size:11px;display:inline-block}.due{background:#fff0f0;color:#b42318}.ok{background:#ecfdf3;color:#027a48}.soon{background:#fff7ed;color:#c2410c}
+.leadCheck{width:17px;height:17px;cursor:pointer;accent-color:var(--primary)}.icon{border:0;background:#eef2ff;color:#3730a3;padding:7px 9px;border-radius:7px;cursor:pointer;margin:2px}.delete{background:#fee2e2;color:#b91c1c}
+.modal{display:none;position:fixed;inset:0;background:#0007;z-index:20;align-items:center;justify-content:center;padding:15px}.modal.show{display:flex}.box{background:#fff;border-radius:16px;width:min(900px,100%);max-height:92vh;overflow:auto;padding:20px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.field label{font-size:12px;font-weight:700;display:block;margin-bottom:5px;color:#475467}.field.full{grid-column:1/-1}.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.close{border:0;background:#eee;border-radius:50%;width:34px;height:34px;cursor:pointer}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.notice{padding:12px;border-radius:10px;background:#eff6ff;color:#1e40af;margin-bottom:14px;font-size:13px}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.toolbar{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+@media(max-width:550px){.stats{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr}.head{align-items:flex-start}.brand h1{font-size:20px}}
+</style>
+</head>
+<body>
+<header><div class="head">
+<div class="brand"><h1>📋 Lead Follow-up Manager</h1><small>Online editable lead database</small></div>
+<div class="actions"><button class="btn primary" onclick="openAdd()">＋ Add Lead</button><button class="btn primary" onclick="exportCSV()">Export CSV</button></div>
+</div></header>
+<main>
+<div id="notice" class="notice">Demo mode: data is stored in this browser. Connect the Google Apps Script backend in <b>app.js</b> to make it live and editable from anywhere.</div>
+<section class="stats">
+<div class="stat"><span>Total Leads</span><b id="total">0</b></div><div class="stat"><span>Today's Follow-ups</span><b id="today">0</b></div><div class="stat"><span>Quotation Given</span><b id="quotes">0</b></div><div class="stat"><span>Hot Leads</span><b id="hot">0</b></div>
+</section>
+<div class="toolbar">
+<input id="search" class="input" placeholder="Search client, mobile, architect, area, sales person..." oninput="render()">
+<select id="statusFilter" onchange="render()"><option value="">All Status</option></select>
+<select id="salesFilter" onchange="render()"><option value="">All Sales Persons</option></select>
+<button class="btn gray" onclick="resetFilters()">Reset</button><button class="btn blue" onclick="setSelectedFollowUp()">📅 Set Follow-up</button>
+</div>
+<div class="table-wrap"><table><thead>
+<tr class="header-row">
+<th>✓</th><th>ID</th><th>Lead Date</th><th>Client</th><th>Client Mobile</th><th>Architect</th><th>Architect Mobile</th><th>Sales Person</th><th>Lead Given By</th><th>Quotation</th><th>Amount</th><th>Dealed</th><th>Hot Lead</th><th>Address</th><th>Area</th><th>Current Status</th><th>Next Follow-up</th><th>Actions</th>
+</tr>
+<tr class="filter-row">
+<th></th>
+<th><input class="column-filter" data-key="id" placeholder="Filter ID"></th>
+<th><input class="column-filter" data-key="leadInDate" type="date" title="Filter Lead Date"></th>
+<th><input class="column-filter" data-key="clientName" placeholder="Filter client"></th>
+<th><input class="column-filter" data-key="clientMobile" placeholder="Filter mobile"></th>
+<th><input class="column-filter" data-key="architectName" placeholder="Filter architect"></th>
+<th><input class="column-filter" data-key="architectMobile" placeholder="Filter mobile"></th>
+<th><input class="column-filter" data-key="salesPerson" placeholder="Filter sales"></th>
+<th><input class="column-filter" data-key="leadGivenBy" placeholder="Filter source"></th>
+<th><input class="column-filter" data-key="quotation" placeholder="Filter quotation"></th>
+<th><input class="column-filter" data-key="amount" placeholder="Filter amount"></th>
+<th><input class="column-filter" data-key="dealed" placeholder="Filter dealed"></th>
+<th><input class="column-filter" data-key="hotLead" placeholder="Filter hot lead"></th>
+<th><input class="column-filter" data-key="address" placeholder="Filter address"></th>
+<th><input class="column-filter" data-key="area" placeholder="Filter area"></th>
+<th><input class="column-filter" data-key="currentStatus" placeholder="Filter status"></th>
+<th><input class="column-filter" data-key="nextFollowUpDate" type="date" title="Filter Next Follow-up"></th>
+<th><button class="filter-clear" type="button" onclick="resetColumnFilters()">Clear</button></th>
+</tr>
+</thead><tbody id="tbody"></tbody></table></div>
+</main>
+<div id="modal" class="modal"><div class="box">
+<div class="modal-head"><h2 id="modalTitle">Add Lead</h2><button class="close" onclick="closeModal()">×</button></div>
+<form id="leadForm"><div class="grid" id="fields"></div><div class="modal-actions"><button type="button" class="btn gray" onclick="closeModal()">Cancel</button><button class="btn blue" type="submit">Save Lead</button></div></form>
+</div></div>
+<script>
+const API_URL=""; // Put deployed Google Apps Script Web App URL here.
+let leads=[];
+const fields=[
+["id","ID","number"],["leadInDate","Lead In Date","date"],["clientName","Client Name","text"],["clientMobile","Client Mobile","tel"],
+["architectName","Architect Name","text"],["architectMobile","Architect Mobile","tel"],["salesPerson","Sales Person","text"],["leadGivenBy","Lead Given By","text"],
+["quotation","Quotation","text"],["amount","Amount","textarea"],["dealed","Dealed","text"],["hotLead","Hot Lead","text"],["address","Address","textarea"],
+["area","Area","text"],["currentStatus","Current Side Status","text"],["nextFollowUpDate","Next Follow-up Date","date"]
+];
+let editId=null;
+const columnFilters={};
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function loadLocal(){const saved=localStorage.getItem("leadFollowupData"); leads=saved?JSON.parse(saved):SEED_DATA||[]; saveLocal()}
+function saveLocal(){localStorage.setItem("leadFollowupData",JSON.stringify(leads))}
+async function load(){
+if(!API_URL){loadLocal();document.getElementById("notice").style.display="block";return}
+try{const r=await fetch(API_URL);leads=await r.json();document.getElementById("notice").style.display="none"}catch(e){loadLocal()}
+render()
+}
+function render(){
+const q=document.getElementById("search").value.toLowerCase(), sf=document.getElementById("statusFilter").value, sp=document.getElementById("salesFilter").value;
+const statuses=[...new Set(leads.map(x=>x.currentStatus).filter(Boolean))].sort(), sales=[...new Set(leads.map(x=>x.salesPerson).filter(Boolean))].sort();
+document.getElementById("statusFilter").innerHTML='<option value="">All Status</option>'+statuses.map(x=>`<option ${x===sf?"selected":""}>${esc(x)}</option>`).join("");
+document.getElementById("salesFilter").innerHTML='<option value="">All Sales Persons</option>'+sales.map(x=>`<option ${x===sp?"selected":""}>${esc(x)}</option>`).join("");
+const list=leads.filter(x=>{
+const s=Object.values(x).join(" ").toLowerCase();
+const globalOk=s.includes(q)&&(!sf||x.currentStatus===sf)&&(!sp||x.salesPerson===sp);
+const columnsOk=Object.entries(columnFilters).every(([k,v])=>{
+if(!v)return true;
+const value=String(x[k]??"").toLowerCase();
+return value.includes(String(v).toLowerCase());
+});
+return globalOk&&columnsOk;
+});
+const today=new Date().toISOString().slice(0,10);
+document.getElementById("total").textContent=leads.length;
+document.getElementById("today").textContent=leads.filter(x=>x.nextFollowUpDate===today).length;
+document.getElementById("quotes").textContent=leads.filter(x=>String(x.quotation||"").toUpperCase()==="YES").length;
+document.getElementById("hot").textContent=leads.filter(x=>String(x.hotLead||"").toUpperCase().includes("YES")).length;
+document.getElementById("tbody").innerHTML=list.map(x=>{
+let cls=x.nextFollowUpDate&&x.nextFollowUpDate<today?"due":x.nextFollowUpDate===today?"soon":"ok";
+return `<tr><td><input type="checkbox" class="leadCheck" value="${esc(x.id)}"></td>${fields.map(([k])=>`<td>${k==="nextFollowUpDate"&&x[k]?`<span class="status ${cls}">${esc(x[k])}</span>`:esc(x[k])}</td>`).join("")}
+<td><button class="icon" onclick="editLead(${JSON.stringify(x.id)})">✏️ Edit</button><button class="icon" onclick="setFollowUp(${JSON.stringify(x.id)})">📅 Next Follow-up</button><button class="icon delete" onclick="removeLead(${JSON.stringify(x.id)})">🗑️</button></td></tr>`}).join("");
+}
+function openAdd(){editId=null;document.getElementById("modalTitle").textContent="Add Lead";buildForm({});document.getElementById("modal").classList.add("show")}
+function editLead(id){const x=leads.find(a=>String(a.id)===String(id));if(!x)return;editId=id;document.getElementById("modalTitle").textContent="Edit Lead";buildForm(x);document.getElementById("modal").classList.add("show")}
+function buildForm(x){document.getElementById("fields").innerHTML=fields.map(([k,label,type])=>`<div class="field ${["address","amount"].includes(k)?"full":""}"><label>${label}</label>${type==="textarea"?`<textarea class="input" name="${k}" rows="3">${esc(x[k])}</textarea>`:`<input class="input" name="${k}" type="${type}" value="${esc(x[k])}">`}</div>`).join("")}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+document.getElementById("leadForm").addEventListener("submit",async e=>{
+e.preventDefault();const fd=new FormData(e.target), obj={};fields.forEach(([k])=>obj[k]=fd.get(k)||null);
+if(!obj.id)obj.id=Date.now(); if(editId!==null){const i=leads.findIndex(x=>String(x.id)===String(editId));if(i>=0)leads[i]=obj}else leads.push(obj);
+saveLocal();closeModal();render();if(API_URL) await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",data:obj})});
+});
+async function removeLead(id){if(!confirm("Delete this lead?"))return;leads=leads.filter(x=>String(x.id)!==String(id));saveLocal();render();if(API_URL)await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete",id})})}
+function setFollowUp(id){
+const x=leads.find(a=>String(a.id)===String(id)); if(!x)return;
+const d=prompt("Enter next follow-up date (YYYY-MM-DD):", x.nextFollowUpDate || new Date().toISOString().slice(0,10));
+if(d===null)return;
+if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){alert("Please enter date in YYYY-MM-DD format.");return}
+x.nextFollowUpDate=d; saveLocal(); render();
+if(API_URL) fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",data:x})});
+}
+function setSelectedFollowUp(){
+const ids=[...document.querySelectorAll(".leadCheck:checked")].map(x=>x.value);
+if(!ids.length){alert("Please select at least one lead.");return}
+const d=prompt("Enter next follow-up date for selected leads (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
+if(d===null)return;
+if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){alert("Please enter date in YYYY-MM-DD format.");return}
+ids.forEach(id=>{const x=leads.find(a=>String(a.id)===String(id));if(x)x.nextFollowUpDate=d});
+saveLocal(); render();
+if(API_URL) ids.forEach(id=>{const x=leads.find(a=>String(a.id)===String(id));if(x)fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",data:x})})});
+}
+function resetColumnFilters(){
+Object.keys(columnFilters).forEach(k=>delete columnFilters[k]);
+document.querySelectorAll(".column-filter").forEach(el=>el.value="");
+render();
+}
+function resetFilters(){
+document.getElementById("search").value="";
+document.getElementById("statusFilter").value="";
+document.getElementById("salesFilter").value="";
+resetColumnFilters();
+}
+function exportCSV(){const cols=fields.map(x=>x[0]);let csv=cols.join(",")+"\n"+leads.map(x=>cols.map(k=>`"${String(x[k]??"").replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="lead-followup.csv";a.click()}
+document.querySelectorAll(".column-filter").forEach(el=>el.addEventListener("input",e=>{columnFilters[e.target.dataset.key]=e.target.value;render()}));
+const SEED_DATA=[{"id": 102, "leadInDate": "2025-12-03", "clientName": "MR. RAHULBHAI KOTHARI", "clientMobile": 9825126668, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "15,82,658\n18,11,192", "dealed": null, "hotLead": null, "address": "KOTHARI FARM HOUSE NEAR BREDLINER CIRCLE, ALTHAN, SURAT.", "area": "ALTHAN", "currentStatus": "PLASTER DONE", "nextFollowUpDate": "2026-08-20"}, {"id": 103, "leadInDate": "2025-12-03", "clientName": "NIKUNJBHAI KOTHARI", "clientMobile": 9825126668, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "15,82,658\n18,11,192", "dealed": null, "hotLead": null, "address": "KOTHARI FARM HOUSE NEAR BREDLINER CIRCLE, ALTHAN, SURAT.", "area": "ALTHAN", "currentStatus": "PLASTER DONE", "nextFollowUpDate": "2026-08-20"}, {"id": 122, "leadInDate": "2025-12-18", "clientName": "NAVNEETBHAI", "clientMobile": 9825944752, "architectName": "MOIZBHAI", "architectMobile": 9913173652, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "26,12,871", "dealed": null, "hotLead": null, "address": "113- SOMESHWAR ENCLAVE", "area": "VESU", "currentStatus": "PLASTER DONE", "nextFollowUpDate": "2026-08-20"}, {"id": 125, "leadInDate": "2025-12-22", "clientName": "DENISHBHAI GANDHI", "clientMobile": 9879633036, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "6,41,351", "dealed": null, "hotLead": null, "address": "52- GLOSSY SOCIETY, VESU CANAL ROAD.", "area": "VESU", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-20"}, {"id": 131, "leadInDate": "2025-12-29", "clientName": "DR.R.K. BHOOTRA", "clientMobile": 9825122667, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "16,66,528", "dealed": null, "hotLead": null, "address": "7- SAI ASHISH SOCIETY-2, PIPLOD.", "area": "PIPLOD", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-21"}, {"id": 140, "leadInDate": "2026-01-06", "clientName": "ASHISHBHAI PASSWALA", "clientMobile": 9825386348, "architectName": "TEJAS ASSOCIATES", "architectMobile": 2612462003, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "78- KING STONE VILLA. DAHIN NAGAR, JAHANGIRPURA, SURAT.", "area": "JAHANGIR PURA", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-21"}, {"id": 142, "leadInDate": "2026-07-01", "clientName": "SHAILESHBHAI R MASHRUWALA", "clientMobile": 9824177909, "architectName": "PRASHANTBH AI JARIWALA", "architectMobile": 9909922779, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "45,39,123", "dealed": null, "hotLead": null, "address": "7- VESU VILLA, MAIN ROAD, VESU", "area": "VESU", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-21"}, {"id": 143, "leadInDate": "2026-01-07", "clientName": "MANHARLAL G CHOKSI", "clientMobile": 9825558885, "architectName": "PRASHANTBH AI JARIWALA", "architectMobile": 9909922779, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "5- VESU VILLA, MAIN ROAD, VESU", "area": "VESU", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-21"}, {"id": 144, "leadInDate": "2026-01-07", "clientName": "MANHARLAL G CHOKSI", "clientMobile": 9825558885, "architectName": "PRASHANTBH AI JARIWALA", "architectMobile": 9909922779, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "4- VESU VILLA, MAIN ROAD, VESU", "area": "VESU", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-21"}, {"id": 154, "leadInDate": "2026-01-24", "clientName": "PARIMALBHAI GANDHIWALA", "clientMobile": 7698007398, "architectName": "NAYANBHAI JARIWALA", "architectMobile": 9426115187, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "3,35,312", "dealed": null, "hotLead": null, "address": "36- SHANTIVAN BUNGLOWS, BHIMRAD GAM", "area": "BHIMRAD GAM", "currentStatus": "PLASTER DONE", "nextFollowUpDate": "2026-08-21"}, {"id": 155, "leadInDate": "2026-01-24", "clientName": "PIYUSHBHAI MUMBAI WALA", "clientMobile": 7069895040, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "37- SHANTIVAN BUNGLOWS, BHIMRAD GAM", "area": "BHIMRAD GAM", "currentStatus": "CONSTRU CTION RUNNING", "nextFollowUpDate": "2026-08-21"}, {"id": 159, "leadInDate": "2026-02-01", "clientName": "KETANBHAI NANAVATI", "clientMobile": 9427120616, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "9,72,794", "dealed": null, "hotLead": null, "address": "49- SHIV KRUPA SOCIETY, VESU CANAL ROAD", "area": "VESU", "currentStatus": "PLASTER RUNNING", "nextFollowUpDate": "2026-08-21"}, {"id": 161, "leadInDate": "2026-02-02", "clientName": "DASHRTHBHAI PATEL", "clientMobile": 9825148483, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "4,18,071", "dealed": null, "hotLead": null, "address": "53- SHANTIVAN BUNGLOW, BHIMRAD GAM", "area": "BHIMRAD GAM", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-21"}, {"id": 244, "leadInDate": "2026-04-03", "clientName": "Devendra bhai jariwala", "clientMobile": 9825155697, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "m99, Someshwar enclave, vesu", "area": "VESU", "currentStatus": "CONTRUC TION RUNNING", "nextFollowUpDate": "2026-08-20"}, {"id": 263, "leadInDate": "2026-04-11", "clientName": "mansiben shan", "clientMobile": null, "architectName": "abhisekh panchal(pan design)", "architectMobile": "-98196 72757\n(samirbhai) architect", "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "84 adarsh society , athwaliance", "area": "ATHWALIA NCE", "currentStatus": "PLASTER BAKI CHE", "nextFollowUpDate": "2026-08-21"}, {"id": 307, "leadInDate": "2026-04-22", "clientName": "BABULAL KUMAVAT", "clientMobile": 9898412000, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "9,VANITA BANGLOW BANGLOW,ALTHAN", "area": "ALTHAN", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 308, "leadInDate": "2026-04-23", "clientName": "TEJAS BHAI BARDOLIYA", "clientMobile": 9924396919, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "5,23,769", "dealed": null, "hotLead": null, "address": "33-34,DHARAM RAW HOUSE, CITY LIGHT,", "area": "CITY LIGHT", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-21"}, {"id": 309, "leadInDate": "2026-04-23", "clientName": "DENISHBHAI BARDOLIYA", "clientMobile": 9825052511, "architectName": "BHAGAR AND ASSOCIATES ( VIJAYBHAI)", "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "63-65,CHANAKYAPURI SOCIETY,BHATAR", "area": "BHATAR", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-21"}, {"id": 312, "leadInDate": "2026-04-28", "clientName": "ALOKBHAI CHOKSI", "clientMobile": 8155060623, "architectName": "HIREN PATEL ARCHITECT (HPA)", "architectMobile": 9099520101, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "120,NAHERUNAGAR, ATHWA,SURAT", "area": "ATHWA", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 313, "leadInDate": "2026-04-28", "clientName": "RAJUBHAI DESAI", "clientMobile": 9825198073, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": "YES", "amount": "6,37,666", "dealed": null, "hotLead": null, "address": "B-18,TIRUPATI NAGAR, PIPLOD", "area": "PIPLOD", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 314, "leadInDate": "2026-04-28", "clientName": "RAJANBHAI THAKKAE", "clientMobile": 9726795882, "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "B-19,TIRUPATI NAGAR, PIPLOD", "area": "PIPLOD", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 316, "leadInDate": "2026-04-29", "clientName": "PRADIPBHAI UMRIGAR", "clientMobile": 7359953613, "architectName": "HARIBHAI GOTAWALA ( NCO EMPIRE)", "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "1, JAMNANAGAR  RAW HOUSE, UMRA GAM", "area": "UMRA GAM", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 319, "leadInDate": "2026-04-29", "clientName": "DIVYSHBHAI GONAWALA", "clientMobile": 9426652984, "architectName": "AKASH BHAI KINARI WALA", "architectMobile": 9898884188, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "M-72, SOMESHWAR ENCLAVE, VESU", "area": "VESU", "currentStatus": "SEAL OK", "nextFollowUpDate": "2026-08-21"}, {"id": 355, "leadInDate": "2026-05-20", "clientName": "RAMESHBHAI KOTADIYA", "clientMobile": 9825198723, "architectName": "SAGARBHAI", "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "11,SWAMI GUNATIT SOCIETY,PIPLOD", "area": "PIPLOD", "currentStatus": "CONSTRU CTION CHALU", "nextFollowUpDate": "2026-08-20"}, {"id": 367, "leadInDate": "2026-05-25", "clientName": "RAMESHBUAI MAKVANA", "clientMobile": "9099069911 (UMANG MAKVANA)", "architectName": null, "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "5,SAI ENCLAVE NEAR SOMESHWAR ENCLAVE, VESU", "area": "VESU", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 372, "leadInDate": "2026-05-27", "clientName": "SONALBEN GONDALIYA", "clientMobile": 9879208508, "architectName": "RUSHBHBHAI", "architectMobile": null, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "10,SAI ENCLAVE NEAR SOMESHWAR ENCLAVE, VESU", "area": "VESU", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 391, "leadInDate": "2026-06-05", "clientName": "BHAVYA BHAI SHAH", "clientMobile": 8200866116, "architectName": "DEVANSHI MADAM PANSURIYA", "architectMobile": 9624862480, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "25,MARVEL BANGLOW NEAR SUDA BHAVAN,VESU", "area": "VESU", "currentStatus": "CONTRUC TION RUNNING", "nextFollowUpDate": "2026-08-20"}, {"id": 464, "leadInDate": "2026-06-27", "clientName": "DHARMESHBHAI MASHRUWALA", "clientMobile": null, "architectName": "(JIGNESH BHAI TAKODIA) OBAKU\nDESIGE", "architectMobile": 7096788888, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "12,SUBHLAXMI BANGLOW, NEAR DRB COLLEGE, ALTHAN", "area": "ALTHAN", "currentStatus": "PLASTER BAKI", "nextFollowUpDate": "2026-08-20"}, {"id": 509, "leadInDate": "2026-08-08", "clientName": "DIPAK BHAI", "clientMobile": 9825122575, "architectName": "YASH BHAI PATEL", "architectMobile": 8460889793, "salesPerson": "VIVEKBHAI", "leadGivenBy": "SELF", "quotation": null, "amount": null, "dealed": null, "hotLead": null, "address": "5, HEAVENLY HOMES,VESU CANAL ROAD ,VESU", "area": "VESU", "currentStatus": "PLASTER OK", "nextFollowUpDate": "2026-08-20"}];
+load();
+</script>
+</body></html>

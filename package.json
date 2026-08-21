@@ -1,0 +1,11 @@
+{
+  "name": "lead-followup-vercel-mongodb",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "mongoose": "^8.9.5",
+    "multer": "^1.4.5-lts.1",
+    "csv-parser": "^3.2.0"
+  },
+  "scripts": {}
+}
