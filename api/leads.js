@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const multer = require("multer");
 const csv = require("csv-parser");
 const { Readable } = require("stream");
+const XLSX = require("xlsx");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -13,7 +14,7 @@ const FIELDS = [
 
 const schema = new mongoose.Schema(
   Object.fromEntries(FIELDS.map(f => [f, { type: String, default: "" }])),
-  { timestamps: true, versionKey: false }
+  { timestamps: true, versionKey: false, strict: false }
 );
 schema.index({ id: 1 }, { unique: true });
 const Lead = mongoose.models.Lead || mongoose.model("Lead", schema);
@@ -43,6 +44,77 @@ function parseCsv(buffer) {
       .on("data", row => rows.push(row))
       .on("end", () => resolve(rows))
       .on("error", reject);
+  });
+}
+
+function cleanKey(value) {
+  return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+const ALIASES = {
+  id: ["id","leadid","leadno","leadnumber","srno","serialno","srnumber","number"],
+  leadInDate: ["leadin","leadindate","date","leaddate","in date"],
+  clientName: ["clientname","customername","name","client"],
+  clientMobile: ["clientmo","clientmono","clientmobile","mobileno","mobilenumber","phone","contact"],
+  architectName: ["architectname","architect","architectsname"],
+  architectMobile: ["architectmo","architectmono","architectmobile","architectphone"],
+  salesPerson: ["salesperson","salespersonname","sales","salesman"],
+  leadGivenBy: ["leadgivenby","givenby","leadby","source","referby"],
+  quotation: ["quotation","quotationyesno","quote","quoted"],
+  amount: ["amount","value","quotationamount","price"],
+  dealed: ["dealed","deal","dealstatus","done","closed"],
+  hotLead: ["hotlead","hot","priority"],
+  address: ["address","location","siteaddress"],
+  area: ["area","region","sitearea"],
+  currentStatus: ["currentstatus","status","currentsidestatus","sidestatus","site status"],
+  nextFollowUpDate: ["nextfollowupdate","followupdate","followup","nextfollowup","nextdate"]
+};
+
+function mapImportedRow(row, headers) {
+  const out = {};
+  const extras = {};
+  const used = new Set();
+  const keys = Object.keys(row);
+  const normalizedHeaders = headers.map(h => cleanKey(h));
+
+  // First map by recognizable column names.
+  for (const field of FIELDS) {
+    const aliases = ALIASES[field] || [field];
+    let idx = normalizedHeaders.findIndex(h => aliases.includes(h));
+    if (idx < 0) idx = normalizedHeaders.findIndex(h => aliases.some(a => a && h.includes(a)));
+    if (idx >= 0 && keys[idx] !== undefined) {
+      out[field] = row[keys[idx]];
+      used.add(keys[idx]);
+    }
+  }
+
+  // For spreadsheet formats like the user's lead sheet, use column position as a fallback.
+  const positional = FIELDS;
+  for (let i = 0; i < positional.length; i++) {
+    const key = keys[i];
+    if (key === undefined || used.has(key)) continue;
+    if (out[positional[i]] === undefined || out[positional[i]] === "") out[positional[i]] = row[key];
+    used.add(key);
+  }
+
+  // Preserve every extra/unrecognized column instead of rejecting the row.
+  for (const key of keys) {
+    if (!used.has(key) && key !== "") extras[String(key)] = row[key];
+  }
+  if (Object.keys(extras).length) out.extraData = extras;
+  return normalize(out);
+}
+
+function sheetRows(buffer) {
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+  if (!matrix.length) return [];
+  const rawHeaders = matrix[0].map((h, i) => String(h ?? "").trim() || `Column ${i + 1}`);
+  return matrix.slice(1).filter(r => r.some(v => String(v ?? "").trim() !== "")).map(r => {
+    const obj = {};
+    rawHeaders.forEach((h, i) => { obj[h] = r[i] ?? ""; });
+    return mapImportedRow(obj, rawHeaders);
   });
 }
 
@@ -83,11 +155,15 @@ module.exports = async (req, res) => {
 
           if (name.endsWith(".json")) {
             const parsed = JSON.parse(req.file.buffer.toString("utf8"));
-            rows = Array.isArray(parsed) ? parsed : (parsed.leads || []);
+            const raw = Array.isArray(parsed) ? parsed : (parsed.leads || []);
+            rows = raw.map(r => mapImportedRow(r, Object.keys(r)));
           } else if (name.endsWith(".csv")) {
-            rows = await parseCsv(req.file.buffer);
+            const raw = await parseCsv(req.file.buffer);
+            rows = raw.map(r => mapImportedRow(r, Object.keys(r)));
+          } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+            rows = sheetRows(req.file.buffer);
           } else {
-            return res.status(400).json({ error: "Only JSON and CSV files are supported." });
+            return res.status(400).json({ error: "Only Excel (.xlsx/.xls), JSON and CSV files are supported." });
           }
 
           if (!rows.length) return res.status(400).json({ error: "No records found." });
