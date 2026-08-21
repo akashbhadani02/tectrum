@@ -1,23 +1,13 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/leads.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "Index.html",
-      "use": "@vercel/static"
-    }
-  ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api/leads(?:/(.*))?",
       "dest": "/api/leads.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/Index.html"
+      "dest": "/index.html"
     }
   ]
 }
