@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Lead Follow-up Manager</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/img/tectrum-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="/img/tectrum-192.png">
     <style>
         * {
             box-sizing: border-box
@@ -187,10 +190,6 @@
         .toolbar button { white-space:nowrap; }
         
     </style>
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" type="image/png" href="./img/favicon.png">
-<link rel="apple-touch-icon" href="./img/icon-192.png">
-<meta name="theme-color" content="#ffffff">
 </head>
 
 <body>
@@ -238,9 +237,65 @@
         const fields = ["id", "leadInDate", "clientName", "clientMobile", "architectName", "architectMobile", "salesPerson", "leadGivenBy", "quotation", "amount", "dealed", "hotLead", "address", "area", "currentStatus", "nextFollowUpDate"];
         const labels = { id: "ID", leadInDate: "Lead Date", clientName: "Client", clientMobile: "Client Mobile", architectName: "Architect", architectMobile: "Architect Mobile", salesPerson: "Sales Person", leadGivenBy: "Lead Given By", quotation: "Quotation", amount: "Amount", dealed: "Dealed", hotLead: "Hot Lead", address: "Address", area: "Area", currentStatus: "Current Status", nextFollowUpDate: "Next Follow-up" };
         let leads = [], editId = null, filters = {};
+        let liveTimer = null;
+        let isLoading = false;
+        let lastDataSignature = "";
+        const LIVE_REFRESH_MS = 2000;
+
+        function dataSignature(data) {
+            return JSON.stringify((data || []).map(x => ({
+                id: x.id,
+                leadInDate: x.leadInDate,
+                clientName: x.clientName,
+                clientMobile: x.clientMobile,
+                architectName: x.architectName,
+                architectMobile: x.architectMobile,
+                salesPerson: x.salesPerson,
+                leadGivenBy: x.leadGivenBy,
+                quotation: x.quotation,
+                amount: x.amount,
+                dealed: x.dealed,
+                hotLead: x.hotLead,
+                address: x.address,
+                area: x.area,
+                currentStatus: x.currentStatus,
+                nextFollowUpDate: x.nextFollowUpDate,
+                updatedAt: x.updatedAt,
+                createdAt: x.createdAt
+            })));
+        }
+
+        async function load(showStatus = true) {
+            if (isLoading) return;
+            isLoading = true;
+            try {
+                // Cache-buster + API no-cache headers make sure another user's changes are fetched.
+                const data = await api(API + "?t=" + Date.now(), { cache: "no-store" });
+                const signature = dataSignature(data);
+                const changed = signature !== lastDataSignature;
+                leads = data;
+                lastDataSignature = signature;
+                if (showStatus) setStatus("Live • Connected to MongoDB", "ok");
+                if (changed) render();
+            } catch (e) {
+                if (showStatus) setStatus("MongoDB/API error: " + e.message, "error");
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function startLiveUpdates() {
+            if (liveTimer) clearInterval(liveTimer);
+            liveTimer = setInterval(() => {
+                if (!document.hidden) load(false);
+            }, LIVE_REFRESH_MS);
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) load(false);
+        });
 
         async function api(url, opt = {}) { const r = await fetch(url, opt); const text = await r.text(); let data = {}; try { data = JSON.parse(text) } catch { } if (!r.ok) throw new Error(data.error || text || ("HTTP " + r.status)); return data }
-        async function load() { try { leads = await api(API); setStatus("Connected to MongoDB", "ok"); render() } catch (e) { setStatus("MongoDB/API error: " + e.message, "error"); } }
         function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
         function render() {
             const active = document.activeElement;
@@ -321,8 +376,9 @@
         async function importFile() { const f = document.getElementById("file").files[0]; if (!f) return alert("Choose a file"); const fd = new FormData(); fd.append("file", f); try { const d = await api(API + "/import", { method: "POST", body: fd }); document.getElementById("importMsg").textContent = `Imported ${d.total} rows: ${d.inserted} added, ${d.updated} updated${d.skippedDuplicateRows ? `, ${d.skippedDuplicateRows} duplicate row(s) merged` : ""}.`; await load() } catch (e) { document.getElementById("importMsg").textContent = e.message } }
         function exportCSV() { const head = fields.join(","); const body = leads.map(x => fields.map(f => `"${String(x[f] ?? "").replaceAll('"', '""')}"`).join(",")).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([head + "\n" + body], { type: "text/csv" })); a.download = "leads.csv"; a.click() }
         load();
+        startLiveUpdates();
+        if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
     </script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js").catch(()=>{}));}</script>
 </body>
 
 </html>
