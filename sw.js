@@ -1,4 +1,4 @@
-const CACHE = "lead-manager-v1";
+const CACHE = "lead-manager-v2";
 self.addEventListener("install", event => self.skipWaiting());
 self.addEventListener("activate", event => event.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", event => {

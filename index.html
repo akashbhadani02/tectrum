@@ -240,7 +240,8 @@
         let liveTimer = null;
         let isLoading = false;
         let lastDataSignature = "";
-        const LIVE_REFRESH_MS = 2000;
+        const LIVE_REFRESH_MS = 1000;
+        const HIDDEN_REFRESH_MS = 5000;
 
         function dataSignature(data) {
             return JSON.stringify((data || []).map(x => ({
@@ -275,7 +276,7 @@
                 const changed = signature !== lastDataSignature;
                 leads = data;
                 lastDataSignature = signature;
-                if (showStatus) setStatus("Live • Connected to MongoDB", "ok");
+                if (showStatus) setStatus("Live • Connected • Auto-sync every 1 second", "ok");
                 if (changed) render();
             } catch (e) {
                 if (showStatus) setStatus("MongoDB/API error: " + e.message, "error");
@@ -286,14 +287,18 @@
 
         function startLiveUpdates() {
             if (liveTimer) clearInterval(liveTimer);
+            // Poll the shared MongoDB-backed API continuously so changes made by
+            // any user/device appear on every other open device automatically.
             liveTimer = setInterval(() => {
-                if (!document.hidden) load(false);
+                load(false);
             }, LIVE_REFRESH_MS);
         }
 
         document.addEventListener("visibilitychange", () => {
             if (!document.hidden) load(false);
         });
+        window.addEventListener("focus", () => load(false));
+        window.addEventListener("online", () => load(false));
 
         async function api(url, opt = {}) { const r = await fetch(url, opt); const text = await r.text(); let data = {}; try { data = JSON.parse(text) } catch { } if (!r.ok) throw new Error(data.error || text || ("HTTP " + r.status)); return data }
         function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
