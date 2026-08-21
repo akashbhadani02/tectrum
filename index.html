@@ -181,7 +181,11 @@
                 padding: 12px
             }
         }
-    </style>
+    
+        .rowCheck, #selectAll { width:18px; height:18px; cursor:pointer; }
+        th:first-child, td:first-child { text-align:center; }
+        .toolbar button { white-space:nowrap; }
+        
 </head>
 
 <body>
@@ -191,9 +195,13 @@
     </header>
     <div class="wrap">
         <div id="status" class="status">Connecting to MongoDB...</div>
-        <div class="toolbar"><input id="globalSearch" placeholder="Search all columns..." oninput="render()"><button
-                class="gray" onclick="clearFilters()">Clear Filters</button><button class="gray"
-                onclick="exportCSV()">Export CSV</button></div>
+        <div class="toolbar">
+            <button class="gray" onclick="toggleAllRows(true)">☑ Select All</button>
+            <button onclick="deleteSelected()">Delete Selected</button>
+            <input id="globalSearch" placeholder="Search all columns..." oninput="render()">
+            <button class="gray" onclick="clearFilters()">Clear Filters</button>
+            <button class="gray" onclick="exportCSV()">Export CSV</button>
+        </div>
         <div class="card">
             <div id="tableWrap"></div>
         </div>
@@ -230,10 +238,49 @@
         function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
         function render() {
             const q = document.getElementById("globalSearch").value.toLowerCase();
-            const rows = leads.filter(x => fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) && fields.some(f => String(x[f] ?? "").toLowerCase().includes(q)));
-            let h = "<table><thead><tr>" + fields.map(f => "<th>" + labels[f] + "</th>").join("") + "<th>Actions</th></tr><tr>" + fields.map(f => `<th><input class="filter" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") + "<th></th></tr></thead><tbody>";
-            for (const x of rows) h += "<tr>" + fields.map(f => "<td>" + esc(x[f] ?? "") + "</td>").join("") + "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> <button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
-            h += "</tbody></table>"; document.getElementById("tableWrap").innerHTML = h;
+            const rows = leads.filter(x =>
+                fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) &&
+                fields.some(f => String(x[f] ?? "").toLowerCase().includes(q))
+            );
+            let h = "<table><thead><tr>" +
+                "<th style='width:42px'><input type='checkbox' id='selectAll' title='Select all visible rows' onchange='toggleAllRows(this.checked)'></th>" +
+                fields.map(f => "<th>" + labels[f] + "</th>").join("") +
+                "<th>Actions</th></tr><tr><th></th>" +
+                fields.map(f => `<th><input class="filter" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") +
+                "<th></th></tr></thead><tbody>";
+
+            for (const x of rows) {
+                h += "<tr><td><input type='checkbox' class='rowCheck' value='" + esc(x.id) + "' title='Select " + esc(x.id) + "'></td>" +
+                    fields.map(f => "<td>" + esc(x[f] ?? "") + "</td>").join("") +
+                    "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> " +
+                    "<button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
+            }
+            h += "</tbody></table>";
+            document.getElementById("tableWrap").innerHTML = h;
+        }
+        function getSelectedIds() {
+            return [...document.querySelectorAll(".rowCheck:checked")].map(el => el.value);
+        }
+        function toggleAllRows(checked) {
+            document.querySelectorAll(".rowCheck").forEach(el => el.checked = !!checked);
+            const master = document.getElementById("selectAll");
+            if (master) master.checked = !!checked;
+        }
+        async function deleteSelected() {
+            const ids = getSelectedIds();
+            if (!ids.length) {
+                alert("Please select at least one lead.");
+                return;
+            }
+            if (!confirm("Delete " + ids.length + " selected lead(s)?")) return;
+            try {
+                for (const id of ids) {
+                    await api(API + "/" + encodeURIComponent(id), { method: "DELETE" });
+                }
+                await load();
+            } catch (e) {
+                alert(e.message);
+            }
         }
         function esc(v) { return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])) }
         function clearFilters() { filters = {}; document.getElementById("globalSearch").value = ""; render() }
