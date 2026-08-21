@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const multer = require("multer");
 const csv = require("csv-parser");
 const { Readable } = require("stream");
@@ -29,10 +30,14 @@ async function connectDB() {
   });
 }
 
+function makeId() {
+  return "L-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+}
+
 function normalize(input = {}) {
   const out = {};
   for (const f of FIELDS) out[f] = input[f] == null ? "" : String(input[f]).trim();
-  if (!out.id) out.id = String(Date.now());
+  if (!out.id) out.id = makeId();
   return out;
 }
 
@@ -168,23 +173,31 @@ module.exports = async (req, res) => {
 
           if (!rows.length) return res.status(400).json({ error: "No records found." });
 
-          const ops = rows.map(row => {
+          // Normalize every row, generate an ID when missing, and keep only the last
+          // occurrence when the same ID appears more than once in the uploaded file.
+          const byId = new Map();
+          for (const row of rows) {
             const doc = normalize(row);
-            return {
-              updateOne: {
-                filter: { id: doc.id },
-                update: { $set: doc },
-                upsert: true
-              }
-            };
-          });
+            byId.set(doc.id, doc);
+          }
+          const docs = [...byId.values()];
+
+          const ops = docs.map(doc => ({
+            updateOne: {
+              filter: { id: doc.id },
+              update: { $set: doc },
+              upsert: true
+            }
+          }));
 
           const result = await Lead.bulkWrite(ops, { ordered: false });
           return res.json({
             ok: true,
             total: rows.length,
+            unique: docs.length,
             inserted: result.upsertedCount || 0,
-            updated: result.modifiedCount || 0
+            updated: result.modifiedCount || 0,
+            skippedDuplicateRows: rows.length - docs.length
           });
         } catch (e) {
           return res.status(400).json({ error: e.message });
