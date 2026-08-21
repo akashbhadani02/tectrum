@@ -239,6 +239,10 @@
         async function load() { try { leads = await api(API); setStatus("Connected to MongoDB", "ok"); render() } catch (e) { setStatus("MongoDB/API error: " + e.message, "error"); } }
         function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
         function render() {
+            const active = document.activeElement;
+            const activeId = active && active.id;
+            const activeStart = active && typeof active.selectionStart === "number" ? active.selectionStart : null;
+            const activeEnd = active && typeof active.selectionEnd === "number" ? active.selectionEnd : null;
             const q = document.getElementById("globalSearch").value.toLowerCase();
             const rows = leads.filter(x =>
                 fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) &&
@@ -248,7 +252,7 @@
                 "<th style='width:42px'><input type='checkbox' id='selectAll' title='Select all visible rows' onchange='toggleAllRows(this.checked)'></th>" +
                 fields.map(f => "<th>" + labels[f] + "</th>").join("") +
                 "<th>Actions</th></tr><tr><th></th>" +
-                fields.map(f => `<th><input class="filter" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") +
+                fields.map(f => `<th><input class="filter" id="filter_${f}" type="${f === "leadInDate" || f === "nextFollowUpDate" ? "date" : "text"}" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") +
                 "<th></th></tr></thead><tbody>";
 
             for (const x of rows) {
@@ -259,6 +263,17 @@
             }
             h += "</tbody></table>";
             document.getElementById("tableWrap").innerHTML = h;
+            // Re-rendering the table used to steal focus from filter inputs after every character.
+            // Restore the exact input and caret so typing/searching works normally.
+            if (activeId) {
+                const restored = document.getElementById(activeId);
+                if (restored) {
+                    restored.focus();
+                    if (activeStart !== null && typeof restored.setSelectionRange === "function" && restored.type !== "date") {
+                        try { restored.setSelectionRange(activeStart, activeEnd); } catch (_) {}
+                    }
+                }
+            }
         }
         function getSelectedIds() {
             return [...document.querySelectorAll(".rowCheck:checked")].map(el => el.value);
@@ -288,7 +303,12 @@
         function clearFilters() { filters = {}; document.getElementById("globalSearch").value = ""; render() }
         function openAdd() { editId = null; document.getElementById("modalTitle").textContent = "Add Lead"; buildForm({}); document.getElementById("leadModal").classList.add("show") }
         function editLead(id) { const x = leads.find(a => String(a.id) === String(id)); if (!x) return; editId = id; document.getElementById("modalTitle").textContent = "Edit Lead"; buildForm(x); document.getElementById("leadModal").classList.add("show") }
-        function buildForm(x) { document.getElementById("form").innerHTML = fields.map(f => `<label>${labels[f]}<input id="f_${f}" value="${esc(x[f] ?? "")}" ${f === "id" && editId !== null ? "readonly" : ""}></label>`).join("") }
+        function buildForm(x) {
+            document.getElementById("form").innerHTML = fields.map(f => {
+                const isDate = f === "leadInDate" || f === "nextFollowUpDate";
+                return `<label>${labels[f]}<input id="f_${f}" type="${isDate ? "date" : "text"}" value="${esc(x[f] ?? "")}" ${f === "id" && editId !== null ? "readonly" : ""}></label>`;
+            }).join("");
+        }
         function closeLead() { document.getElementById("leadModal").classList.remove("show") }
         async function saveLead() { const x = {}; fields.forEach(f => x[f] = document.getElementById("f_" + f).value); if (!x.id) x.id = String(Date.now()); try { await api(editId === null ? API : API + "/" + encodeURIComponent(editId), { method: editId === null ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(x) }); closeLead(); await load() } catch (e) { alert(e.message) } }
         async function deleteLead(id) { if (!confirm("Delete this lead?")) return; try { await api(API + "/" + encodeURIComponent(id), { method: "DELETE" }); await load() } catch (e) { alert(e.message) } }
