@@ -239,6 +239,7 @@
         let leads = [], editId = null, filters = {};
         // Keep row checkbox state while the table is re-rendered by live sync.
         const selectedIds = new Set();
+        const pendingSelectionIds = new Set();
         let liveTimer = null;
         let isLoading = false;
         let lastDataSignature = "";
@@ -263,6 +264,7 @@
                 area: x.area,
                 currentStatus: x.currentStatus,
                 nextFollowUpDate: x.nextFollowUpDate,
+                selected: Boolean(x.selected),
                 updatedAt: x.updatedAt,
                 createdAt: x.createdAt
             })));
@@ -322,6 +324,14 @@
             // Remove selections for records that no longer exist.
             const existing = new Set(leads.map(x => String(x.id)));
             [...selectedIds].forEach(id => { if (!existing.has(String(id))) selectedIds.delete(id); });
+            // Reconcile selections received from MongoDB. Local selections are kept
+            // until the server reflects the same value, so the current checkbox does
+            // not flicker while the live update is in flight.
+            leads.forEach(x => {
+                const id = String(x.id);
+                if (x.selected === true) selectedIds.add(id);
+                else if (x.selected === false && !pendingSelectionIds.has(id)) selectedIds.delete(id);
+            });
 
             let h = "<table><thead><tr>" +
                 "<th style='width:42px'><input type='checkbox' id='selectAll' title='Select all visible rows' onchange='toggleAllRows(this.checked)'></th>" +
@@ -356,11 +366,27 @@
             }
         }
 
-        function setRowSelected(el) {
+        async function setRowSelected(el) {
             const id = String(el.value);
-            if (el.checked) selectedIds.add(id);
+            const checked = Boolean(el.checked);
+            if (checked) selectedIds.add(id);
             else selectedIds.delete(id);
+            pendingSelectionIds.add(id);
             updateSelectAllState();
+            try {
+                await api(API + "/selection", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, selected: checked })
+                });
+            } catch (e) {
+                if (checked) selectedIds.delete(id);
+                else selectedIds.add(id);
+                alert("Checkbox sync failed: " + e.message);
+            } finally {
+                pendingSelectionIds.delete(id);
+                updateSelectAllState();
+            }
         }
 
         function updateSelectAllState() {
@@ -376,13 +402,30 @@
             return [...selectedIds];
         }
 
-        function toggleAllRows(checked) {
-            getVisibleRows().forEach(x => {
-                const id = String(x.id);
+        async function toggleAllRows(checked) {
+            const ids = getVisibleRows().map(x => String(x.id));
+            ids.forEach(id => {
                 if (checked) selectedIds.add(id);
                 else selectedIds.delete(id);
+                pendingSelectionIds.add(id);
             });
             render();
+            try {
+                await api(API + "/selection", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ids, selected: checked })
+                });
+            } catch (e) {
+                ids.forEach(id => {
+                    if (checked) selectedIds.delete(id);
+                    else selectedIds.add(id);
+                });
+                alert("Checkbox sync failed: " + e.message);
+            } finally {
+                ids.forEach(id => pendingSelectionIds.delete(id));
+                updateSelectAllState();
+            }
         }
 
         async function deleteSelected() {

@@ -13,6 +13,8 @@ const FIELDS = [
   "area","currentStatus","nextFollowUpDate"
 ];
 
+const CHECKBOX_FIELD = "selected";
+
 const schema = new mongoose.Schema(
   Object.fromEntries(FIELDS.map(f => [f, { type: String, default: "" }])),
   { timestamps: true, versionKey: false, strict: false }
@@ -147,6 +149,30 @@ module.exports = async (req, res) => {
 
     const parts = routeParts(req);
     const action = parts[2] || "";
+
+    // Persist checkbox selection in MongoDB so ticking/unticking a row or Select All
+    // is live-synced to every other open device.
+    if (req.method === "POST" && action === "selection") {
+      const body = req.body || {};
+      if (Array.isArray(body.ids)) {
+        const ids = body.ids.map(v => String(v));
+        const selected = Boolean(body.selected);
+        if (ids.length) {
+          await Lead.updateMany({ id: { $in: ids } }, { $set: { [CHECKBOX_FIELD]: selected } });
+        }
+        return res.json({ ok: true, ids, selected });
+      }
+      if (body.id == null) return res.status(400).json({ error: "Missing lead ID." });
+      const id = String(body.id);
+      const selected = Boolean(body.selected);
+      const updated = await Lead.findOneAndUpdate(
+        { id },
+        { $set: { [CHECKBOX_FIELD]: selected } },
+        { new: true }
+      );
+      if (!updated) return res.status(404).json({ error: "Lead not found." });
+      return res.json({ ok: true, id, selected });
+    }
 
     if (req.method === "GET") {
       const data = await Lead.find().sort({ createdAt: -1 }).lean();
