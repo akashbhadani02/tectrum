@@ -1,12 +1,37 @@
 {
   "version": 2,
   "routes": [
-    {"src": "/api/leads(?:/(.*))?", "dest": "/api/leads.js"},
-    {"src": "/favicon.ico", "continue": true},
-    {"src": "/img/(.*)", "continue": true},
-    {"src": "/manifest.webmanifest", "continue": true},
-    {"src": "/service-worker.js", "continue": true},
-    {"src": "/sw.js", "continue": true},
-    {"src": "/(.*)", "dest": "/index.html"}
+    {
+      "src": "/api/leads(?:/(.*))?",
+      "dest": "/api/leads.js"
+    },
+    {
+      "src": "/favicon.ico",
+      "continue": true
+    },
+    {
+      "src": "/img/(.*)",
+      "continue": true
+    },
+    {
+      "src": "/manifest.webmanifest",
+      "continue": true
+    },
+    {
+      "src": "/service-worker.js",
+      "continue": true
+    },
+    {
+      "src": "/sw.js",
+      "continue": true
+    },
+    {
+      "src": "/favicon.svg",
+      "continue": true
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
   ]
 }
