@@ -246,7 +246,11 @@
         let leads = [], editId = null, filters = {};
         // Keep row checkbox state while the table is re-rendered by live sync.
         const selectedIds = new Set();
+        // Keep a local desired value until a fresh MongoDB GET confirms it.
+        // This prevents an older live-refresh response from re-ticking a box
+        // immediately after the user unticks it.
         const pendingSelectionIds = new Set();
+        const pendingSelectionValues = new Map();
         let liveTimer = null;
         let isLoading = false;
         let lastDataSignature = "";
@@ -331,13 +335,25 @@
             // Remove selections for records that no longer exist.
             const existing = new Set(leads.map(x => String(x.id)));
             [...selectedIds].forEach(id => { if (!existing.has(String(id))) selectedIds.delete(id); });
-            // Reconcile selections received from MongoDB. Local selections are kept
-            // until the server reflects the same value, so the current checkbox does
-            // not flicker while the live update is in flight.
+            // Reconcile MongoDB selections, but never overwrite a newer local
+            // checkbox choice until the server GET confirms that exact value.
             leads.forEach(x => {
                 const id = String(x.id);
-                if (x.selected === true) selectedIds.add(id);
-                else if (x.selected === false && !pendingSelectionIds.has(id)) selectedIds.delete(id);
+                const serverSelected = x.selected === true;
+                if (pendingSelectionIds.has(id)) {
+                    const wanted = pendingSelectionValues.get(id);
+                    if (serverSelected === wanted) {
+                        pendingSelectionIds.delete(id);
+                        pendingSelectionValues.delete(id);
+                    } else {
+                        // Server response is stale; keep the user's latest choice.
+                        if (wanted) selectedIds.add(id);
+                        else selectedIds.delete(id);
+                        return;
+                    }
+                }
+                if (serverSelected) selectedIds.add(id);
+                else selectedIds.delete(id);
             });
 
             let h = "<table><thead><tr>" +
@@ -376,23 +392,31 @@
         async function setRowSelected(el) {
             const id = String(el.value);
             const checked = Boolean(el.checked);
+
+            // Apply immediately and remember the exact value the user requested.
             if (checked) selectedIds.add(id);
             else selectedIds.delete(id);
             pendingSelectionIds.add(id);
+            pendingSelectionValues.set(id, checked);
             updateSelectAllState();
+
             try {
                 await api(API + "/selection", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ id, selected: checked })
                 });
+                // Do NOT clear pending here. A live GET can still contain an older
+                // value because it may have started before this POST finished.
+                // The next GET will clear pending only after it confirms the value.
+                await load(false);
             } catch (e) {
+                pendingSelectionIds.delete(id);
+                pendingSelectionValues.delete(id);
                 if (checked) selectedIds.delete(id);
                 else selectedIds.add(id);
-                alert("Checkbox sync failed: " + e.message);
-            } finally {
-                pendingSelectionIds.delete(id);
                 updateSelectAllState();
+                alert("Checkbox sync failed: " + e.message);
             }
         }
 
@@ -415,23 +439,27 @@
                 if (checked) selectedIds.add(id);
                 else selectedIds.delete(id);
                 pendingSelectionIds.add(id);
+                pendingSelectionValues.set(id, checked);
             });
             render();
+
             try {
                 await api(API + "/selection", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ ids, selected: checked })
                 });
+                // Keep pending values until a GET confirms the new state.
+                await load(false);
             } catch (e) {
                 ids.forEach(id => {
+                    pendingSelectionIds.delete(id);
+                    pendingSelectionValues.delete(id);
                     if (checked) selectedIds.delete(id);
                     else selectedIds.add(id);
                 });
-                alert("Checkbox sync failed: " + e.message);
-            } finally {
-                ids.forEach(id => pendingSelectionIds.delete(id));
                 updateSelectAllState();
+                alert("Checkbox sync failed: " + e.message);
             }
         }
 
