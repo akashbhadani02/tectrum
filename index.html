@@ -197,182 +197,6 @@
         .toolbar button { white-space:nowrap; }
         
     </style>
-
-<style id="responsive-data-cards">
-/* Card layout for incoming data */
-.data-cards {
-  display: none;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 14px;
-  margin-top: 14px;
-}
-.data-card {
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 14px;
-  padding: 15px;
-  box-shadow: 0 3px 12px rgba(0,0,0,.07);
-}
-.data-card__top {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:12px;
-}
-.data-card__title {
-  font-weight:700;
-  font-size:16px;
-  color:#111827;
-}
-.data-card__field {
-  display:grid;
-  grid-template-columns: 105px minmax(0,1fr);
-  gap:8px;
-  padding:7px 0;
-  border-top:1px solid rgba(128,128,128,.14);
-}
-.data-card__label {
-  font-weight:600;
-  color:#6b7280;
-  font-size:12px;
-}
-.data-card__value {
-  color:#111827;
-  font-size:13px;
-  overflow-wrap:anywhere;
-}
-.data-card__actions {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:12px;
-}
-.data-card input[type="checkbox"] {
-  width:18px;
-  height:18px;
-  accent-color:#2563eb;
-}
-@media (max-width: 800px) {
-  .data-cards { display:grid; }
-  .data-table-wrap,
-  .table-responsive,
-  table { display:none !important; }
-}
-</style>
-<script>
-(function () {
-  function findMainTable() {
-    return Array.from(document.querySelectorAll('table')).find(t => {
-      const headers = Array.from(t.querySelectorAll('thead th')).map(x => x.textContent.trim().toLowerCase());
-      return headers.length >= 2;
-    });
-  }
-
-  function cardContainer() {
-    let c = document.getElementById('dataCards');
-    if (!c) {
-      c = document.createElement('div');
-      c.id = 'dataCards';
-      c.className = 'data-cards';
-      const table = findMainTable();
-      if (table && table.parentElement) table.parentElement.appendChild(c);
-    }
-    return c;
-  }
-
-  function escapeHtml(v) {
-    return String(v ?? '')
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-      .replace(/'/g,'&#039;');
-  }
-
-  function renderCardsFromTable() {
-    const table = findMainTable();
-    const container = cardContainer();
-    if (!table || !container) return;
-
-    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
-    const rows = Array.from(table.querySelectorAll('tbody tr'));
-    container.innerHTML = '';
-
-    rows.forEach((tr, index) => {
-      const cells = Array.from(tr.children);
-      if (!cells.length) return;
-
-      const checkbox = tr.querySelector('input[type="checkbox"]');
-      let title = '';
-      const titleIndex = headers.findIndex(h => /name|title|student|user|lead/i.test(h));
-      if (titleIndex >= 0 && cells[titleIndex]) {
-        title = cells[titleIndex].textContent.trim();
-      }
-      if (!title) title = `Record ${index + 1}`;
-
-      const card = document.createElement('div');
-      card.className = 'data-card';
-
-      let fields = '';
-      cells.forEach((cell, i) => {
-        const label = headers[i] || `Field ${i + 1}`;
-        const input = cell.querySelector('input,select,textarea,button');
-        let value = '';
-
-        if (input && input.type === 'checkbox') {
-          value = `<input type="checkbox" aria-label="${escapeHtml(label)}" ${input.checked ? 'checked' : ''}>`;
-        } else {
-          value = cell.textContent.trim();
-          if (!value && input) value = input.value || input.textContent || '';
-          if (!value) return;
-          value = escapeHtml(value);
-        }
-
-        fields += `<div class="data-card__field">
-          <div class="data-card__label">${escapeHtml(label)}</div>
-          <div class="data-card__value">${value}</div>
-        </div>`;
-      });
-
-      card.innerHTML = `
-        <div class="data-card__top">
-          <div class="data-card__title">${escapeHtml(title)}</div>
-        </div>
-        ${fields}
-      `;
-
-      // Mirror checkbox changes back to the original row so existing JS/API logic remains active.
-      const cardCheck = card.querySelector('input[type="checkbox"]');
-      if (cardCheck && checkbox) {
-        cardCheck.addEventListener('change', () => {
-          checkbox.checked = cardCheck.checked;
-          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-      }
-
-      container.appendChild(card);
-    });
-  }
-
-  let queued = false;
-  const schedule = () => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      renderCardsFromTable();
-    });
-  };
-
-  const observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-
-  window.addEventListener('resize', schedule);
-  window.addEventListener('load', schedule);
-  setTimeout(schedule, 300);
-  setTimeout(schedule, 1200);
-})();
-</script>
-
 </head>
 
 <body>
@@ -422,11 +246,7 @@
         let leads = [], editId = null, filters = {};
         // Keep row checkbox state while the table is re-rendered by live sync.
         const selectedIds = new Set();
-        // Keep a local desired value until a fresh MongoDB GET confirms it.
-        // This prevents an older live-refresh response from re-ticking a box
-        // immediately after the user unticks it.
         const pendingSelectionIds = new Set();
-        const pendingSelectionValues = new Map();
         let liveTimer = null;
         let isLoading = false;
         let lastDataSignature = "";
@@ -511,25 +331,13 @@
             // Remove selections for records that no longer exist.
             const existing = new Set(leads.map(x => String(x.id)));
             [...selectedIds].forEach(id => { if (!existing.has(String(id))) selectedIds.delete(id); });
-            // Reconcile MongoDB selections, but never overwrite a newer local
-            // checkbox choice until the server GET confirms that exact value.
+            // Reconcile selections received from MongoDB. Local selections are kept
+            // until the server reflects the same value, so the current checkbox does
+            // not flicker while the live update is in flight.
             leads.forEach(x => {
                 const id = String(x.id);
-                const serverSelected = x.selected === true;
-                if (pendingSelectionIds.has(id)) {
-                    const wanted = pendingSelectionValues.get(id);
-                    if (serverSelected === wanted) {
-                        pendingSelectionIds.delete(id);
-                        pendingSelectionValues.delete(id);
-                    } else {
-                        // Server response is stale; keep the user's latest choice.
-                        if (wanted) selectedIds.add(id);
-                        else selectedIds.delete(id);
-                        return;
-                    }
-                }
-                if (serverSelected) selectedIds.add(id);
-                else selectedIds.delete(id);
+                if (x.selected === true) selectedIds.add(id);
+                else if (x.selected === false && !pendingSelectionIds.has(id)) selectedIds.delete(id);
             });
 
             let h = "<table><thead><tr>" +
@@ -568,31 +376,23 @@
         async function setRowSelected(el) {
             const id = String(el.value);
             const checked = Boolean(el.checked);
-
-            // Apply immediately and remember the exact value the user requested.
             if (checked) selectedIds.add(id);
             else selectedIds.delete(id);
             pendingSelectionIds.add(id);
-            pendingSelectionValues.set(id, checked);
             updateSelectAllState();
-
             try {
                 await api(API + "/selection", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ id, selected: checked })
                 });
-                // Do NOT clear pending here. A live GET can still contain an older
-                // value because it may have started before this POST finished.
-                // The next GET will clear pending only after it confirms the value.
-                await load(false);
             } catch (e) {
-                pendingSelectionIds.delete(id);
-                pendingSelectionValues.delete(id);
                 if (checked) selectedIds.delete(id);
                 else selectedIds.add(id);
-                updateSelectAllState();
                 alert("Checkbox sync failed: " + e.message);
+            } finally {
+                pendingSelectionIds.delete(id);
+                updateSelectAllState();
             }
         }
 
@@ -615,27 +415,23 @@
                 if (checked) selectedIds.add(id);
                 else selectedIds.delete(id);
                 pendingSelectionIds.add(id);
-                pendingSelectionValues.set(id, checked);
             });
             render();
-
             try {
                 await api(API + "/selection", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ ids, selected: checked })
                 });
-                // Keep pending values until a GET confirms the new state.
-                await load(false);
             } catch (e) {
                 ids.forEach(id => {
-                    pendingSelectionIds.delete(id);
-                    pendingSelectionValues.delete(id);
                     if (checked) selectedIds.delete(id);
                     else selectedIds.add(id);
                 });
-                updateSelectAllState();
                 alert("Checkbox sync failed: " + e.message);
+            } finally {
+                ids.forEach(id => pendingSelectionIds.delete(id));
+                updateSelectAllState();
             }
         }
 
