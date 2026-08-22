@@ -287,7 +287,7 @@
                 const changed = signature !== lastDataSignature;
                 leads = data;
                 lastDataSignature = signature;
-                if (showStatus) setStatus("Live • Connected", "ok");
+                if (showStatus) setStatus("Connected", "ok");
                 if (changed) render();
             } catch (e) {
                 if (showStatus) setStatus("MongoDB/API error: " + e.message, "error");
