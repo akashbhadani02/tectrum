@@ -237,10 +237,12 @@
         const fields = ["id", "leadInDate", "clientName", "clientMobile", "architectName", "architectMobile", "salesPerson", "leadGivenBy", "quotation", "amount", "dealed", "hotLead", "address", "area", "currentStatus", "nextFollowUpDate"];
         const labels = { id: "ID", leadInDate: "Lead Date", clientName: "Client", clientMobile: "Client Mobile", architectName: "Architect", architectMobile: "Architect Mobile", salesPerson: "Sales Person", leadGivenBy: "Lead Given By", quotation: "Quotation", amount: "Amount", dealed: "Dealed", hotLead: "Hot Lead", address: "Address", area: "Area", currentStatus: "Current Status", nextFollowUpDate: "Next Follow-up" };
         let leads = [], editId = null, filters = {};
+        // Keep row checkbox state while the table is re-rendered by live sync.
+        const selectedIds = new Set();
         let liveTimer = null;
         let isLoading = false;
         let lastDataSignature = "";
-        const LIVE_REFRESH_MS = 1000;
+        const LIVE_REFRESH_MS = 750;
         const HIDDEN_REFRESH_MS = 5000;
 
         function dataSignature(data) {
@@ -276,7 +278,7 @@
                 const changed = signature !== lastDataSignature;
                 leads = data;
                 lastDataSignature = signature;
-                if (showStatus) setStatus("Live • Connected • Auto-sync every 1 second", "ok");
+                if (showStatus) setStatus("Live • Connected • All columns auto-sync every 0.75 second", "ok");
                 if (changed) render();
             } catch (e) {
                 if (showStatus) setStatus("MongoDB/API error: " + e.message, "error");
@@ -302,16 +304,25 @@
 
         async function api(url, opt = {}) { const r = await fetch(url, opt); const text = await r.text(); let data = {}; try { data = JSON.parse(text) } catch { } if (!r.ok) throw new Error(data.error || text || ("HTTP " + r.status)); return data }
         function setStatus(t, c) { const s = document.getElementById("status"); s.textContent = t; s.className = "status " + c }
+        function getVisibleRows() {
+            const q = (document.getElementById("globalSearch")?.value || "").toLowerCase();
+            return leads.filter(x =>
+                fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) &&
+                fields.some(f => String(x[f] ?? "").toLowerCase().includes(q))
+            );
+        }
+
         function render() {
             const active = document.activeElement;
             const activeId = active && active.id;
             const activeStart = active && typeof active.selectionStart === "number" ? active.selectionStart : null;
             const activeEnd = active && typeof active.selectionEnd === "number" ? active.selectionEnd : null;
-            const q = document.getElementById("globalSearch").value.toLowerCase();
-            const rows = leads.filter(x =>
-                fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) &&
-                fields.some(f => String(x[f] ?? "").toLowerCase().includes(q))
-            );
+            const rows = getVisibleRows();
+
+            // Remove selections for records that no longer exist.
+            const existing = new Set(leads.map(x => String(x.id)));
+            [...selectedIds].forEach(id => { if (!existing.has(String(id))) selectedIds.delete(id); });
+
             let h = "<table><thead><tr>" +
                 "<th style='width:42px'><input type='checkbox' id='selectAll' title='Select all visible rows' onchange='toggleAllRows(this.checked)'></th>" +
                 fields.map(f => "<th>" + labels[f] + "</th>").join("") +
@@ -320,15 +331,20 @@
                 "<th></th></tr></thead><tbody>";
 
             for (const x of rows) {
-                h += "<tr><td><input type='checkbox' class='rowCheck' value='" + esc(x.id) + "' title='Select " + esc(x.id) + "'></td>" +
+                const id = String(x.id);
+                h += "<tr><td><input type='checkbox' class='rowCheck' value='" + esc(id) +
+                    "' title='Select " + esc(id) + "' onchange='setRowSelected(this)'" +
+                    (selectedIds.has(id) ? " checked" : "") + "></td>" +
                     fields.map(f => "<td>" + esc(x[f] ?? "") + "</td>").join("") +
                     "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> " +
                     "<button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
             }
             h += "</tbody></table>";
             document.getElementById("tableWrap").innerHTML = h;
-            // Re-rendering the table used to steal focus from filter inputs after every character.
-            // Restore the exact input and caret so typing/searching works normally.
+
+            updateSelectAllState();
+
+            // Re-rendering the table must not steal focus/caret from a filter/search input.
             if (activeId) {
                 const restored = document.getElementById(activeId);
                 if (restored) {
@@ -339,14 +355,36 @@
                 }
             }
         }
-        function getSelectedIds() {
-            return [...document.querySelectorAll(".rowCheck:checked")].map(el => el.value);
+
+        function setRowSelected(el) {
+            const id = String(el.value);
+            if (el.checked) selectedIds.add(id);
+            else selectedIds.delete(id);
+            updateSelectAllState();
         }
-        function toggleAllRows(checked) {
-            document.querySelectorAll(".rowCheck").forEach(el => el.checked = !!checked);
+
+        function updateSelectAllState() {
             const master = document.getElementById("selectAll");
-            if (master) master.checked = !!checked;
+            if (!master) return;
+            const visibleIds = getVisibleRows().map(x => String(x.id));
+            const selectedVisible = visibleIds.filter(id => selectedIds.has(id)).length;
+            master.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+            master.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
         }
+
+        function getSelectedIds() {
+            return [...selectedIds];
+        }
+
+        function toggleAllRows(checked) {
+            getVisibleRows().forEach(x => {
+                const id = String(x.id);
+                if (checked) selectedIds.add(id);
+                else selectedIds.delete(id);
+            });
+            render();
+        }
+
         async function deleteSelected() {
             const ids = getSelectedIds();
             if (!ids.length) {
@@ -357,6 +395,7 @@
             try {
                 for (const id of ids) {
                     await api(API + "/" + encodeURIComponent(id), { method: "DELETE" });
+                    selectedIds.delete(String(id));
                 }
                 await load();
             } catch (e) {
@@ -375,7 +414,7 @@
         }
         function closeLead() { document.getElementById("leadModal").classList.remove("show") }
         async function saveLead() { const x = {}; fields.forEach(f => x[f] = document.getElementById("f_" + f).value); if (!x.id) x.id = String(Date.now()); try { await api(editId === null ? API : API + "/" + encodeURIComponent(editId), { method: editId === null ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(x) }); closeLead(); await load() } catch (e) { alert(e.message) } }
-        async function deleteLead(id) { if (!confirm("Delete this lead?")) return; try { await api(API + "/" + encodeURIComponent(id), { method: "DELETE" }); await load() } catch (e) { alert(e.message) } }
+        async function deleteLead(id) { if (!confirm("Delete this lead?")) return; try { await api(API + "/" + encodeURIComponent(id), { method: "DELETE" }); selectedIds.delete(String(id)); await load() } catch (e) { alert(e.message) } }
         function openImport() { document.getElementById("importModal").classList.add("show"); document.getElementById("importMsg").textContent = "" }
         function closeImport() { document.getElementById("importModal").classList.remove("show") }
         async function importFile() { const f = document.getElementById("file").files[0]; if (!f) return alert("Choose a file"); const fd = new FormData(); fd.append("file", f); try { const d = await api(API + "/import", { method: "POST", body: fd }); document.getElementById("importMsg").textContent = `Imported ${d.total} rows: ${d.inserted} added, ${d.updated} updated${d.skippedDuplicateRows ? `, ${d.skippedDuplicateRows} duplicate row(s) merged` : ""}.`; await load() } catch (e) { document.getElementById("importMsg").textContent = e.message } }
