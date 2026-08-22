@@ -1,37 +1,19 @@
 {
   "version": 2,
+  "headers": [
+    {"source": "/favicon.ico", "headers": [{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source": "/manifest.webmanifest", "headers": [{"key":"Content-Type","value":"application/manifest+json"},{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source": "/manifest.json", "headers": [{"key":"Content-Type","value":"application/manifest+json"},{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},
+    {"source": "/img/(.*)", "headers": [{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]}
+  ],
   "routes": [
-    {
-      "src": "/api/leads(?:/(.*))?",
-      "dest": "/api/leads.js"
-    },
-    {
-      "src": "/favicon.ico",
-      "continue": true
-    },
-    {
-      "src": "/img/(.*)",
-      "continue": true
-    },
-    {
-      "src": "/manifest.webmanifest",
-      "continue": true
-    },
-    {
-      "src": "/service-worker.js",
-      "continue": true
-    },
-    {
-      "src": "/sw.js",
-      "continue": true
-    },
-    {
-      "src": "/favicon.svg",
-      "continue": true
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    {"src": "/api/leads(?:/(.*))?", "dest": "/api/leads.js"},
+    {"src": "/favicon.ico", "continue": true},
+    {"src": "/manifest.webmanifest", "continue": true},
+    {"src": "/manifest.json", "continue": true},
+    {"src": "/img/(.*)", "continue": true},
+    {"src": "/service-worker.js", "continue": true},
+    {"src": "/sw.js", "continue": true},
+    {"src": "/(.*)", "dest": "/index.html"}
   ]
 }
