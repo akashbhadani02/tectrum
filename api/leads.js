@@ -36,9 +36,23 @@ function makeId() {
   return "L-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
 }
 
+function dateOnly(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  // Keep ISO dates without time (e.g. 2026-08-29 or 2026-08-29T10:30:00Z).
+  const iso = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  // Excel/JS date strings are converted to a date-only ISO value when valid.
+  const d = new Date(text);
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return text;
+}
+
 function normalize(input = {}) {
   const out = {};
   for (const f of FIELDS) out[f] = input[f] == null ? "" : String(input[f]).trim();
+  out.leadInDate = dateOnly(out.leadInDate);
+  out.nextFollowUpDate = dateOnly(out.nextFollowUpDate);
   if (!out.id) out.id = makeId();
   return out;
 }

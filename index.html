@@ -352,7 +352,7 @@
                 h += "<tr><td><input type='checkbox' class='rowCheck' value='" + esc(id) +
                     "' title='Select " + esc(id) + "' onchange='setRowSelected(this)'" +
                     (selectedIds.has(id) ? " checked" : "") + "></td>" +
-                    fields.map(f => "<td>" + esc(x[f] ?? "") + "</td>").join("") +
+                    fields.map(f => "<td>" + esc((f === "leadInDate" || f === "nextFollowUpDate") ? dateOnly(x[f]) : (x[f] ?? "")) + "</td>").join("") +
                     "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> " +
                     "<button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
             }
@@ -452,6 +452,7 @@
                 alert(e.message);
             }
         }
+        function dateOnly(v) { const m = String(v ?? "").match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : String(v ?? ""); }
         function esc(v) { return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])) }
         function clearFilters() { filters = {}; document.getElementById("globalSearch").value = ""; render() }
         function openAdd() { editId = null; document.getElementById("modalTitle").textContent = "Add Lead"; buildForm({}); document.getElementById("leadModal").classList.add("show") }
@@ -459,7 +460,7 @@
         function buildForm(x) {
             document.getElementById("form").innerHTML = fields.map(f => {
                 const isDate = f === "leadInDate" || f === "nextFollowUpDate";
-                return `<label>${labels[f]}<input id="f_${f}" type="${isDate ? "date" : "text"}" value="${esc(x[f] ?? "")}" ${f === "id" && editId !== null ? "readonly" : ""}></label>`;
+                return `<label>${labels[f]}<input id="f_${f}" type="${isDate ? "date" : "text"}" value="${esc(isDate ? dateOnly(x[f]) : (x[f] ?? ""))}" ${f === "id" && editId !== null ? "readonly" : ""}></label>`;
             }).join("");
         }
         function closeLead() { document.getElementById("leadModal").classList.remove("show") }
