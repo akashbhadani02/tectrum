@@ -116,6 +116,28 @@
             min-width: 100px
         }
 
+        .next-followup-calendar { position: relative; min-width: 190px; }
+        .date-filter-trigger { width: 100%; min-height: 34px; padding: 6px 8px; border: 1px solid #94a3b8; border-radius: 6px; background: #f8fafc; color: #0f172a; cursor: pointer; text-align: left; font-size: 12px; font-weight: 500; }
+        .date-filter-trigger:hover { background: #eef2ff; border-color: #6366f1; }
+        .date-filter-popup { position: absolute; z-index: 1000; top: calc(100% + 4px); left: 0; width: 290px; padding: 12px; background: #ffffff; border: 1px solid #94a3b8; border-radius: 10px; box-shadow: 0 12px 32px rgba(15,23,42,.22); }
+        .date-filter-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding:7px 8px; background:#1e3a8a; border-radius:7px; color:#fff; }
+        .date-filter-head button { border:1px solid #bfdbfe; background:#ffffff; color:#1e3a8a; border-radius:5px; padding:3px 9px; cursor:pointer; font-weight:700; }
+        .date-filter-head button:hover { background:#dbeafe; }
+        .date-filter-title { font-weight:700; font-size:13px; color:#fff; }
+        .date-filter-week, .date-filter-grid { display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; }
+        .date-filter-week { margin-bottom:3px; }
+        .date-filter-week span { text-align:center; font-size:10px; font-weight:700; color:#334155; padding:4px 0; background:#e2e8f0; border-radius:4px; }
+        .date-filter-day { border:1px solid #cbd5e1; background:#f1f5f9; color:#0f172a; border-radius:5px; padding:7px 0; font-size:11px; font-weight:600; cursor:pointer; }
+        .date-filter-day:hover { background:#dbeafe; border-color:#60a5fa; color:#1e3a8a; }
+        .date-filter-day.selected { background:#2563eb; border-color:#1d4ed8; color:#fff; box-shadow:0 0 0 2px #bfdbfe; }
+        .date-filter-day.empty { visibility:hidden; pointer-events:none; }
+        .date-filter-actions { display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:9px; border-top:1px solid #cbd5e1; }
+        .date-filter-actions button { border:1px solid #94a3b8; background:#f8fafc; color:#0f172a; border-radius:5px; padding:5px 9px; cursor:pointer; font-size:11px; font-weight:600; }
+        .date-filter-actions button:hover { background:#e2e8f0; }
+        .date-filter-actions .set-date-filter { background:#2563eb; color:#fff; border-color:#2563eb; }
+        .date-filter-actions .set-date-filter:hover { background:#1d4ed8; }
+        .selected-date-count { margin-top: 3px; font-size: 10px; color: #475569; white-space: normal; line-height: 1.2; font-weight: 500; }
+
         .status {
             margin: 8px 0;
             padding: 10px;
@@ -316,9 +338,141 @@
         function getVisibleRows() {
             const q = (document.getElementById("globalSearch")?.value || "").toLowerCase();
             return leads.filter(x =>
-                fields.every(f => String(x[f] ?? "").toLowerCase().includes((filters[f] || "").toLowerCase())) &&
+                fields.every(f => {
+                    if (f === "nextFollowUpDate" && Array.isArray(filters[f])) {
+                        const selectedDates = filters[f];
+                        return selectedDates.length === 0 || selectedDates.includes(dateOnly(x[f]));
+                    }
+                    return String(x[f] ?? "").toLowerCase().includes(String(filters[f] || "").toLowerCase());
+                }) &&
                 fields.some(f => String(x[f] ?? "").toLowerCase().includes(q))
             );
+        }
+
+        function getNextFollowUpFilterOptions() {
+            return [...new Set(
+                leads
+                    .map(x => dateOnly(x.nextFollowUpDate))
+                    .filter(Boolean)
+            )].sort();
+        }
+
+        function formatFilterDate(value) {
+            if (!value) return "";
+            const d = new Date(value + "T00:00:00");
+            if (Number.isNaN(d.getTime())) return value;
+            return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+        }
+
+        let followUpCalendarOpen = false;
+        let followUpCalendarDraft = [];
+        let followUpCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+        function calendarMonthLabel(d) {
+            return d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+        }
+
+        function renderFollowUpCalendar() {
+            const selected = Array.isArray(followUpCalendarDraft) ? followUpCalendarDraft : [];
+            const year = followUpCalendarMonth.getFullYear();
+            const month = followUpCalendarMonth.getMonth();
+            const first = new Date(year, month, 1);
+            const days = new Date(year, month + 1, 0).getDate();
+            const offset = (first.getDay() + 6) % 7;
+            let cells = Array(offset).fill(`<button type="button" class="date-filter-day empty" tabindex="-1"></button>`).join("");
+            for (let day = 1; day <= days; day++) {
+                const value = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                cells += `<button type="button" class="date-filter-day ${selected.includes(value) ? "selected" : ""}" onclick="toggleFollowUpCalendarDate('${value}')">${day}</button>`;
+            }
+            return `<div class="date-filter-popup" onclick="event.stopPropagation()">
+                <div class="date-filter-head">
+                    <button type="button" onclick="changeFollowUpCalendarMonth(-1)">‹</button>
+                    <span class="date-filter-title">${esc(calendarMonthLabel(followUpCalendarMonth))}</span>
+                    <button type="button" onclick="changeFollowUpCalendarMonth(1)">›</button>
+                </div>
+                <div class="date-filter-week"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+                <div class="date-filter-grid">${cells}</div>
+                <div class="date-filter-actions">
+                    <button type="button" onclick="clearFollowUpCalendarDraft()">Clear</button>
+                    <span class="selected-date-count">${selected.length} selected</span>
+                    <button type="button" class="set-date-filter" onclick="setFollowUpCalendarFilter()">Set</button>
+                </div>
+            </div>`;
+        }
+
+        function nextFollowUpFilterHtml() {
+            const selected = Array.isArray(filters.nextFollowUpDate) ? filters.nextFollowUpDate : [];
+            const label = selected.length ? selected.map(formatFilterDate).join(", ") : "Select date(s)";
+            return `<div class="next-followup-calendar">
+                <button type="button" class="date-filter-trigger" onclick="toggleFollowUpCalendar()">${esc(label)}</button>
+                ${followUpCalendarOpen ? renderFollowUpCalendar() : ""}
+                <div class="selected-date-count">${selected.length ? `${selected.length} date${selected.length === 1 ? "" : "s"} set` : "Select multiple dates, then click Set"}</div>
+            </div>`;
+        }
+
+        function toggleFollowUpCalendar() {
+            followUpCalendarOpen = !followUpCalendarOpen;
+            if (followUpCalendarOpen) {
+                followUpCalendarDraft = [...(Array.isArray(filters.nextFollowUpDate) ? filters.nextFollowUpDate : [])];
+                const base = followUpCalendarDraft[0] ? new Date(followUpCalendarDraft[0] + "T00:00:00") : new Date();
+                followUpCalendarMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+            }
+            render();
+        }
+
+        function toggleFollowUpCalendarDate(value) {
+            const i = followUpCalendarDraft.indexOf(value);
+            if (i >= 0) followUpCalendarDraft.splice(i, 1);
+            else followUpCalendarDraft.push(value);
+            followUpCalendarDraft.sort();
+            render();
+        }
+
+        function changeFollowUpCalendarMonth(delta) {
+            followUpCalendarMonth = new Date(followUpCalendarMonth.getFullYear(), followUpCalendarMonth.getMonth() + delta, 1);
+            render();
+        }
+
+        function clearFollowUpCalendarDraft() {
+            followUpCalendarDraft = [];
+            filters.nextFollowUpDate = [];
+            followUpCalendarOpen = false;
+            render();
+        }
+
+        function setFollowUpCalendarFilter() {
+            filters.nextFollowUpDate = [...followUpCalendarDraft].sort();
+            followUpCalendarOpen = false;
+            updateRowsOnly();
+            render();
+        }
+
+        document.addEventListener("click", (event) => {
+            if (!followUpCalendarOpen) return;
+            if (!event.target.closest(".next-followup-calendar")) {
+                followUpCalendarOpen = false;
+                render();
+            }
+        });
+
+        function updateRowsOnly() {
+            const rows = getVisibleRows();
+            let body = "";
+            for (const x of rows) {
+                const id = String(x.id);
+                body += "<tr><td><input type='checkbox' class='rowCheck' value='" + esc(id) +
+                    "' title='Select " + esc(id) + "' onchange='setRowSelected(this)'" +
+                    (selectedIds.has(id) ? " checked" : "") + "></td>" +
+                    fields.map(f => "<td>" + esc((f === "leadInDate" || f === "nextFollowUpDate") ? formatDateDDMMYYYY(x[f]) : (x[f] ?? "")) + "</td>").join("") +
+                    "<td><button onclick='editLead(" + JSON.stringify(x.id) + ")'>Edit</button> " +
+                    "<button class='gray' onclick='deleteLead(" + JSON.stringify(x.id) + ")'>Delete</button></td></tr>";
+            }
+            const table = document.querySelector("#tableWrap table");
+            if (table) {
+                const tbody = table.querySelector("tbody");
+                if (tbody) tbody.innerHTML = body;
+            }
+            updateSelectAllState();
         }
 
         function render() {
@@ -344,7 +498,10 @@
                 "<th style='width:42px'><input type='checkbox' id='selectAll' title='Select all visible rows' onchange='toggleAllRows(this.checked)'></th>" +
                 fields.map(f => "<th>" + labels[f] + "</th>").join("") +
                 "<th>Actions</th></tr><tr><th></th>" +
-                fields.map(f => `<th><input class="filter" id="filter_${f}" type="${f === "leadInDate" || f === "nextFollowUpDate" ? "date" : "text"}" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`).join("") +
+                fields.map(f => f === "nextFollowUpDate"
+                    ? `<th>${nextFollowUpFilterHtml()}</th>`
+                    : `<th><input class="filter" id="filter_${f}" type="${f === "leadInDate" ? "date" : "text"}" value="${esc(filters[f] || "")}" oninput="filters['${f}']=this.value;render()"></th>`
+                ).join("") +
                 "<th></th></tr></thead><tbody>";
 
             for (const x of rows) {

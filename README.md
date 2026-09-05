@@ -29,3 +29,12 @@ Create a database user and allow the deployment to connect. For quick testing, A
 
 ## Security
 Before public production use, add authentication/authorization for write, delete and import operations.
+
+## Run locally
+
+```bash
+npm install
+npm start
+```
+
+This uses Vercel Dev so `/api/leads` works locally as a serverless function. Make sure `MONGODB_URI` is available in `.env` or your environment.

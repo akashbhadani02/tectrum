@@ -5,5 +5,8 @@
     "multer": "^1.4.5-lts.1",
     "csv-parser": "^3.2.0",
     "xlsx": "^0.18.5"
+  },
+  "scripts": {
+    "start": "npx --yes vercel dev"
   }
 }
